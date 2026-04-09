@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../AppContext';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement, Filler } from 'chart.js';
 import { Bar, Line, Doughnut } from 'react-chartjs-2';
-import { execSQL } from '../api';
+import { execSQL, asignarVendedorExterno } from '../api';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler);
 
@@ -46,23 +46,37 @@ export default function ClientesView() {
   // Load clients
   useEffect(() => {
     let mounted = true;
-    const fetchClients = async () => {
+    const fetchClients = () => {
       setLoading(true);
-      let filterStr = '';
-      if (state.user?.role !== 'administrador' && state.user?.role !== 'encargado') {
-        filterStr = `AND vendedor_id = '${state.user?.id}'`;
-      } else if (state.managerView !== 'ALL') {
-        filterStr = `AND vendedor_id = '${state.managerView === 'SELF' ? state.user?.id : state.managerView}'`;
-      }
-      const res = await execSQL(`SELECT id, nombre_completo as name, telefono as phone, vendedor_id as sellerId, mail FROM clientes WHERE 1=1 ${filterStr}`);
+      
+      const externals = state.clients || [];
+
       if (mounted) {
-        setUClients(Array.isArray(res) ? res : []);
+        // 2. FILTRAR SEGÚN ROL Y VISTA ACTUAL (ManagerView)
+        // Necesitamos saber qué cédula estamos observando.
+        let targetCedula = null;
+        if (state.user?.role !== 'administrador' && state.user?.role !== 'encargado') {
+            targetCedula = state.user?.cedula;
+        } else if (state.managerView !== 'ALL') {
+            // Busca la cedula del usuario que el manager está mirando
+            const viewId = state.managerView === 'SELF' ? state.user?.id : state.managerView;
+            const targetUser = state.users.find(u => u.id === viewId);
+            targetCedula = targetUser?.cedula;
+        }
+
+        let filtered = externals;
+        if (targetCedula) {
+            // cedulaVendedor viene como string de char
+            filtered = externals.filter(c => c.cedulaVendedor === String(targetCedula));
+        }
+
+        setUClients(filtered);
         setLoading(false);
       }
     };
-    if (state.user) fetchClients();
+    if (state.user && state.users.length > 0) fetchClients();
     return () => mounted = false;
-  }, [state.user, state.managerView, state.reloadTrigger]);
+  }, [state.user, state.users, state.clients, state.managerView, state.reloadTrigger]);
 
 
 
@@ -138,15 +152,27 @@ export default function ClientesView() {
   };
 
   const executeTransfer = async (targetId) => {
-    const finalTarget = targetId || transferTarget;
-    if (!finalTarget || !modalClient) return;
+    const finalTargetUserId = targetId || transferTarget;
+    if (!finalTargetUserId || !modalClient) return;
+
+    // Tenemos el ID de usuario interno ("Matias"). Hay que traducirlo a Cédula ("5009...")
+    const targetUser = state.users.find(u => u.id === finalTargetUserId);
+    if (!targetUser || !targetUser.cedula) {
+        alert("Ese vendedor no tiene cédula configurada en el sistema para asignaciones externas.");
+        return;
+    }
     
-    showToast('Ejecutando transferencia...', 3000);
-    const res = await execSQL("UPDATE clientes SET vendedor_id = ? WHERE id = ?", [finalTarget, modalClient.id]);
+    showToast('Transfiriendo en base remota...', 3000);
+    
+    // Llamada PATCH hacia la API Externa preferentemente por el entero interno
+    const targetExternalId = modalClient.internalId || modalClient.id; 
+    const res = await asignarVendedorExterno(targetExternalId, targetUser.cedula);
+    
     if (res?.error) {
-      alert("Error transfiriendo cliente: " + res.error);
+      alert("Error telefónico con API Matriz: " + res.error);
       return;
     }
+    
     showToast('Transferencia/Asignación completada.', 4000);
     setModalClient(null);
     updateState({ reloadTrigger: Date.now() }); // Reload entire view

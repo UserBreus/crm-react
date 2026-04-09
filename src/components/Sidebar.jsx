@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../AppContext';
-import { execSQL } from '../api';
+import { execSQL, getVendedoresExternos } from '../api';
 
 export default function Sidebar() {
     const { state, updateState, showToast } = useAppContext();
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     const [profName, setProfName] = useState('');
     const [profPass, setProfPass] = useState('');
+    const [extData, setExtData] = useState(null); // Para guardar datos de la matriz
+    const [loadingExt, setLoadingExt] = useState(false);
 
     if (!state.user) return null;
 
@@ -63,10 +65,21 @@ export default function Sidebar() {
         }
     };
 
-    const openProfile = () => {
+    const openProfile = async () => {
         setProfName(state.user.name);
         setProfPass(state.user.pass);
         setIsProfileModalOpen(true);
+        
+        // Fetch external data si es un vendedor/encargado con cédula
+        if (state.user.cedula) {
+            setLoadingExt(true);
+            const vends = await getVendedoresExternos();
+            if (!vends.error) {
+                const found = vends.find(v => String(v.VendedorID) === String(state.user.cedula));
+                setExtData(found || null);
+            }
+            setLoadingExt(false);
+        }
     };
 
     return (
@@ -125,6 +138,36 @@ export default function Sidebar() {
                                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Contraseña</label>
                                 <input type="text" value={profPass} onChange={e => setProfPass(e.target.value)} className="w-full p-3 border border-slate-200 rounded-xl outline-none font-bold text-slate-700" required />
                             </div>
+
+                            {/* Matrix Data Panel */}
+                            {state.user.cedula ? (
+                                <div className="mt-4 p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
+                                    <h4 className="text-xs font-black text-indigo-700 uppercase tracking-widest mb-3 flex items-center gap-1"><span className="material-icons text-[14px]">badge</span> ID MATRIZ VINCULADO</h4>
+                                    {loadingExt ? (
+                                        <p className="text-sm font-bold text-indigo-400 animate-pulse">Sincronizando con Servidor Central...</p>
+                                    ) : extData ? (
+                                        <div className="grid grid-cols-2 gap-3 text-sm">
+                                            <div>
+                                                <p className="text-[10px] text-indigo-400 font-bold uppercase">Cédula Oficial</p>
+                                                <p className="font-black text-slate-700">{extData.VendedorID}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] text-indigo-400 font-bold uppercase">Nombre Legal</p>
+                                                <p className="font-black text-slate-700">{extData.VendedorNombre}</p>
+                                            </div>
+                                            <div className="col-span-2">
+                                                <p className="text-[10px] text-indigo-400 font-bold uppercase">Zona de Cobertura</p>
+                                                <p className="font-black text-slate-700">{extData.Zona || 'No especificada'}</p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm font-medium text-amber-600">No se encontró información en la base externa para tu cédula.</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <p className="text-[10px] text-slate-400 font-medium italic mb-2">* Cuenta sin cédula vinculada, no lee datos de la Matriz.</p>
+                            )}
+
                             <div className="flex gap-3 justify-end mt-6">
                                 <button type="button" onClick={() => setIsProfileModalOpen(false)} className="px-5 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition">Cancelar</button>
                                 <button type="submit" className="px-5 py-2.5 bg-indigo-600 text-white font-bold rounded-xl shadow-md hover:bg-indigo-700 transition">Guardar Cambios</button>

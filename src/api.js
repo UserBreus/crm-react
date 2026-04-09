@@ -79,3 +79,70 @@ export async function ejecutarMergeBatch(query, payloadArray) {
         return { error: err.message || "Fallo de red al conectar por API Batch" };
     }
 }
+
+// ==== INTEGRACION API EXTERNA ==== //
+
+/**
+ * Obtiene y normaliza los clientes desde la API externa de la empresa.
+ */
+export async function getClientesExternos() {
+    try {
+        const res = await fetch('/api/ext/clientes', { method: 'GET' });
+        const json = await res.json();
+        
+        if (json.error) return { error: json.error };
+        
+        // El array puede venir en json.data o directo en json
+        let list = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+        
+        // Normalizamos los ID de clientes y textos quitando los espacios de (CHAR padding)
+        const clientesLimpios = list.map(c => ({
+            id: c.IDCliente ? String(c.IDCliente).trim() : '', 
+            internalId: c.id,
+            codNum: c.CodCliente, // identificador numérico interno del software externo
+            name: c.Nombre ? String(c.Nombre).trim() : '',
+            fantasyName: c.NombreFantasia ? String(c.NombreFantasia).trim() : '',
+            mail: c.Email ? String(c.Email).trim() : '',
+            phone: c.TelefonoTrabajo ? String(c.TelefonoTrabajo).trim() : '',
+             address: c.DireccionTrabajo ? String(c.DireccionTrabajo).trim() : '',
+            cedulaVendedor: c.VendedorID ? String(c.VendedorID).trim() : null,
+            vendedorNombreOriginal: c.VendedorNombre ? String(c.VendedorNombre).trim() : ''
+        }));
+        
+        return clientesLimpios;
+    } catch (err) {
+        return { error: err.message };
+    }
+}
+
+/**
+ * Obtiene lista de vendedores (con Zona, etc) desde Matriz
+ */
+export async function getVendedoresExternos() {
+    try {
+        const res = await fetch('/api/ext/vendedores', { method: 'GET' });
+        const json = await res.json();
+        if (json.error) return { error: json.error };
+        return Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+    } catch(err) {
+        return { error: err.message };
+    }
+}
+
+/**
+ * Asigna un vendedor a un cliente en la base remota
+ */
+export async function asignarVendedorExterno(clientIdEx, cedula) {
+    try {
+        // En este Endpoint, se manda la cedula bajo la clave VendedorID al PATCH
+        const res = await fetch(`/api/ext/clientes/${clientIdEx}/vendedor`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ VendedorID: cedula })
+        });
+        const json = await res.json();
+        return json; // {success: true} 
+    } catch(err) {
+        return { error: err.message };
+    }
+}

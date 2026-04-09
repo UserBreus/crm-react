@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { runSmartSync } from './syncEngine';
-import { execSQL } from './api';
+import { execSQL, getClientesExternos } from './api';
 
 const AppContext = createContext();
 
@@ -152,18 +152,21 @@ export function AppProvider({ children }) {
         
         try {
             const [
-                rolesRes, usersRes, notifRes, configRes, coloresRes
+                rolesRes, usersRes, notifRes, configRes, coloresRes, clientsRes
             ] = await Promise.all([
                 execSQL("SELECT * FROM roles"),
                 execSQL("SELECT * FROM usuarios"),
                 execSQL("SELECT TOP 50 * FROM notificaciones ORDER BY timestamp DESC"),
                 execSQL("SELECT * FROM configuracion_externa"),
-                execSQL("SELECT * FROM colores_estados")
+                execSQL("SELECT * FROM colores_estados"),
+                getClientesExternos()
             ]);
 
             const roles = Array.isArray(rolesRes) ? rolesRes : [];
-            const users = Array.isArray(usersRes) ? usersRes.map(u => ({ id: u.id, pass: u.pass, role: u.rol, name: u.nombre_completo })) : [];
-            users.push({ id: 'user', pass: 'vilardebo2031', role: 'administrador', name: 'Super Administrador' });
+            const users = Array.isArray(usersRes) ? usersRes.map(u => ({ 
+                id: u.id, pass: u.pass, role: u.rol, name: u.nombre_completo, cedula: u.cedula ? String(u.cedula).trim() : null 
+            })) : [];
+            users.push({ id: 'user', pass: 'vilardebo2031', role: 'administrador', name: 'Super Administrador', cedula: null });
 
             const notificaciones = Array.isArray(notifRes) ? notifRes.map(n => ({ 
                 id: n.id, title: n.titulo, message: n.mensaje, link: n.enlace, author: n.autor, timestamp: n.timestamp 
@@ -182,7 +185,8 @@ export function AppProvider({ children }) {
             updateState({
                 roles, users, notificaciones, 
                 datosConfig, rawColoresEstados, coloresEstados, loading: false,
-                reloadTrigger: Date.now()
+                reloadTrigger: Date.now(),
+                clients: Array.isArray(clientsRes) && !clientsRes.error ? clientsRes : []
             });
 
             if (!isInitialLoad) {

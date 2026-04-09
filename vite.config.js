@@ -10,6 +10,14 @@ export default defineConfig({
   ],
   server: {
     proxy: {
+      '/api/ext': {
+        target: 'https://user.com.uy/api/external',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/ext/, ''),
+        headers: {
+           'x-api-key': 'VilardeboyDefensa@2031'
+        }
+      },
       '/api': {
         target: 'http://3.85.26.173:5005',
         changeOrigin: true,

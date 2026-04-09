@@ -60,8 +60,27 @@ export default function VisorView() {
      const fetchVisor = async () => {
          setLoading(true);
          const term = (state.searchTerm || '').replace(/'/g, '').toLowerCase().trim();
-         
+         // Resolvemos los validTargetIds como en DashboardView e InteraccionesView
+         let validTargetIds = null;
+         let targetCedula = null;
+
+         if (state.user?.role !== 'administrador' && state.user?.role !== 'encargado') {
+             targetCedula = state.user?.cedula;
+         } else if (state.managerView !== 'ALL') {
+             const viewId = state.managerView === 'SELF' ? state.user?.id : state.managerView;
+             targetCedula = state.users.find(u => u.id === viewId)?.cedula;
+         }
+
+         if (targetCedula) {
+             const misClientes = (state.clients || []).filter(c => c.cedulaVendedor === String(targetCedula));
+             validTargetIds = misClientes.length > 0 ? misClientes.map(c => `'${c.id}'`).join(',') : "''";
+         }
+
          let whereClause = `srv.servicio = '${currentService}'`;
+         if (validTargetIds) {
+             whereClause += ` AND m.cliente_id IN (${validTargetIds})`;
+         }
+
          if (term) {
               whereClause += ` AND (m.orden_id LIKE '%${term}%' OR m.cliente_id LIKE '%${term}%' OR srv.trabajo LIKE '%${term}%' OR srv.producto LIKE '%${term}%' OR srv.modo LIKE '%${term}%' OR srv.estado LIKE '%${term}%')`;
          }

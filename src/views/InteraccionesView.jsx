@@ -34,6 +34,8 @@ export default function InteraccionesView() {
   const [newNoteType, setNewNoteType] = useState('Positiva');
   const [newNoteText, setNewNoteText] = useState('');
   const [isNoteClient, setIsNoteClient] = useState(false);
+  
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
 
   const [myClients, setMyClients] = useState([]);
   const [uSegs, setUSegs] = useState([]);
@@ -44,23 +46,34 @@ export default function InteraccionesView() {
      let mounted = true;
      const fetchData = async () => {
          setLoadingVars(true);
-         let filterStr = '';
+         let validTargetIds = null;
+         let targetCedula = null;
+
          if (state.user?.role !== 'administrador' && state.user?.role !== 'encargado') {
-             filterStr = `AND vendedor_id = '${state.user?.id}'`;
+             targetCedula = state.user?.cedula;
          } else if (state.managerView !== 'ALL') {
-             filterStr = `AND vendedor_id = '${state.managerView === 'SELF' ? state.user?.id : state.managerView}'`;
+             const viewId = state.managerView === 'SELF' ? state.user?.id : state.managerView;
+             targetCedula = state.users.find(u => u.id === viewId)?.cedula;
          }
 
+         let myClientsForSeg = state.clients || [];
+         if (targetCedula) {
+             myClientsForSeg = myClientsForSeg.filter(c => c.cedulaVendedor === String(targetCedula));
+             validTargetIds = myClientsForSeg.length > 0 ? myClientsForSeg.map(c => `'${c.id}'`).join(',') : "''";
+         }
+
+         const wSegs = validTargetIds ? `WHERE cliente_id IN (${validTargetIds})` : `WHERE 1=1`;
+         const wNotas = validTargetIds ? `WHERE s.cliente_id IN (${validTargetIds})` : `WHERE 1=1`;
+
          try {
-             const [clientsRes, segsRes] = await Promise.all([
-                 execSQL(`SELECT id, nombre_completo, vendedor_id, telefono FROM clientes WHERE 1=1 ${filterStr}`),
-                 execSQL(`SELECT id, cliente_id, cliente_nombre, servicios, medio, estado, vendedor_id, nombre_hilo, timestamp FROM seguimientos WHERE cliente_id IN (SELECT id FROM clientes WHERE 1=1 ${filterStr})`)
+             const cArr = myClientsForSeg.map(c => ({
+                 id: c.id, name: c.name || c.fantasyName || c.clientId, sellerId: targetCedula, phone: c.phone
+             }));
+
+             const [segsRes] = await Promise.all([
+                 execSQL(`SELECT id, cliente_id, cliente_nombre, servicios, medio, estado, vendedor_id, nombre_hilo, timestamp FROM seguimientos ${wSegs}`)
              ]);
              if (!mounted) return;
-             
-             const cArr = Array.isArray(clientsRes) ? clientsRes.map(c => ({
-                id: c.id, name: c.nombre_completo, sellerId: c.vendedor_id, phone: c.telefono
-             })) : [];
              
              const sArr = Array.isArray(segsRes) ? segsRes.map(s => ({
                 id: s.id, clientId: s.cliente_id, clientName: s.cliente_nombre, service: s.servicios,
@@ -70,7 +83,7 @@ export default function InteraccionesView() {
              setMyClients(cArr);
              setUSegs(sArr);
              
-             const nRes = await execSQL(`SELECT n.id, n.seguimiento_id, n.tipo, n.categoria, n.texto, n.servicio_nota, n.es_cliente, n.timestamp FROM notas_seguimiento n JOIN seguimientos s ON n.seguimiento_id=s.id JOIN clientes c ON s.cliente_id=c.id WHERE 1=1 ${filterStr.replace(/vendedor_id/g, 'c.vendedor_id')}`);
+             const nRes = await execSQL(`SELECT n.id, n.seguimiento_id, n.tipo, n.categoria, n.texto, n.servicio_nota, n.es_cliente, n.timestamp FROM notas_seguimiento n JOIN seguimientos s ON n.seguimiento_id=s.id ${wNotas}`);
              if (mounted) {
                  const nArr = Array.isArray(nRes) ? nRes.map(n => ({
                     id: n.id, segId: n.seguimiento_id, type: n.tipo, category: n.categoria, text: n.texto, service: n.servicio_nota, isClient: n.es_cliente, timestamp: n.timestamp
@@ -506,8 +519,33 @@ export default function InteraccionesView() {
                        <input value={nsThreadName} onChange={e=>setNsThreadName(e.target.value)} type="text" className="w-full p-3 border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-indigo-500 font-bold text-slate-800" placeholder="Escribe un título identificativo..." required />
                      </div>
                      <div className="relative">
-                       <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">ID de Cliente</label>
-                       <input value={nsClientId} onChange={e=>setNsClientId(e.target.value)} onBlur={e=>{const c=myClients.find(x=>x.id===e.target.value); if(c) setNsClientName(c.name||'');}} type="text" className="w-full p-3 border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-indigo-500 font-bold font-mono tracking-wider" placeholder="ID exacto..." required />
+                       <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Seleccionar Cliente (Buscador)</label>
+                       <input value={nsClientId} onChange={e=>setNsClientId(e.target.value)} onFocus={() => setShowClientDropdown(true)} onBlur={(e)=>{
+                           setTimeout(() => setShowClientDropdown(false), 200);
+                           const c = myClients.find(x => x.id.toLowerCase() === e.target.value.toLowerCase());
+                           if(c) {
+                               setNsClientId(c.id);
+                               setNsClientName(c.name || '');
+                           }
+                       }} type="text" autoComplete="off" className="w-full p-3 border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-indigo-500 font-bold tracking-wider" placeholder="Escribe el nombre o ID..." required />
+                       {showClientDropdown && (
+                         <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-slate-200 shadow-xl rounded-xl z-50 max-h-48 overflow-y-auto w-full">
+                            {myClients.filter(c => c.id.toLowerCase().includes(nsClientId.toLowerCase()) || (c.name || '').toLowerCase().includes(nsClientId.toLowerCase())).slice(0, 10).map(c => (
+                               <div key={c.id} onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  setNsClientId(c.id);
+                                  setNsClientName(c.name || '');
+                                  setShowClientDropdown(false);
+                               }} className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-slate-50 last:border-0 transition">
+                                  <div className="font-bold text-slate-800 text-sm whitespace-nowrap overflow-hidden text-ellipsis">{c.name || c.id}</div>
+                                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">ID Cliente: {c.id}</div>
+                               </div>
+                            ))}
+                            {myClients.filter(c => c.id.toLowerCase().includes(nsClientId.toLowerCase()) || (c.name || '').toLowerCase().includes(nsClientId.toLowerCase())).length === 0 && (
+                               <div className="p-3 text-xs text-slate-400 font-bold text-center">No se encontraron clientes o no son de tu cartera.</div>
+                            )}
+                         </div>
+                       )}
                      </div>
                      <div>
                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Servicios Involucrados</label>

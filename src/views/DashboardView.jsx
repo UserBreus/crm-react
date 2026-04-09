@@ -35,25 +35,40 @@ export default function DashboardView() {
      let mounted = true;
      const fetchData = async () => {
          setLoadingVars(true);
-         let filterStr = '';
+         let validTargetIds = null;
+         let targetCedula = null;
+
          if (state.user?.role !== 'administrador' && state.user?.role !== 'encargado') {
-             filterStr = `AND c.vendedor_id = '${state.user?.id}'`;
+             targetCedula = state.user?.cedula;
          } else if (state.managerView !== 'ALL') {
-             filterStr = `AND c.vendedor_id = '${state.managerView === 'SELF' ? state.user?.id : state.managerView}'`;
+             const viewId = state.managerView === 'SELF' ? state.user?.id : state.managerView;
+             targetCedula = state.users.find(u => u.id === viewId)?.cedula;
          }
 
+         if (targetCedula) {
+             const misClientes = (state.clients || []).filter(c => c.cedulaVendedor === String(targetCedula));
+             validTargetIds = misClientes.length > 0 ? misClientes.map(c => `'${c.id}'`).join(',') : "''";
+         }
+
+         const wOrders = validTargetIds ? `WHERE m.cliente_id IN (${validTargetIds})` : `WHERE 1=1`;
+         const wSegs = validTargetIds ? `WHERE s.cliente_id IN (${validTargetIds}) AND s.estado='activo'` : `WHERE s.estado='activo'`;
+
          try {
-             const [clientsRes, segsRes, srvRes, mthRes, prodRes, modoRes] = await Promise.all([
-                 execSQL(`SELECT COUNT(id) as c FROM clientes c WHERE 1=1 ${filterStr}`),
-                 execSQL(`SELECT COUNT(s.id) as c FROM seguimientos s JOIN clientes c ON s.cliente_id = c.id WHERE s.estado='activo' ${filterStr}`),
-                 execSQL(`SELECT srv.servicio as s, SUM(TRY_CAST(srv.cantidad as FLOAT)) as c FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id JOIN clientes c ON m.cliente_id=c.id WHERE 1=1 ${filterStr} GROUP BY srv.servicio`),
-                 execSQL(`SELECT srv.servicio as s, YEAR(m.fecha_ingreso) as y, MONTH(m.fecha_ingreso) as m, SUM(TRY_CAST(srv.cantidad as FLOAT)) as c FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id JOIN clientes c ON m.cliente_id=c.id WHERE m.fecha_ingreso >= DATEADD(month, -24, GETDATE()) ${filterStr} GROUP BY srv.servicio, YEAR(m.fecha_ingreso), MONTH(m.fecha_ingreso)`),
-                 execSQL(`SELECT srv.servicio as s, ISNULL(srv.producto, 'SIN PRODUCTO') as p, CONVERT(date, m.fecha_ingreso) as d, SUM(TRY_CAST(srv.cantidad as FLOAT)) as c FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id JOIN clientes c ON m.cliente_id=c.id WHERE m.fecha_ingreso >= DATEADD(day, -30, GETDATE()) ${filterStr} GROUP BY srv.servicio, ISNULL(srv.producto, 'SIN PRODUCTO'), CONVERT(date, m.fecha_ingreso)`),
-                 execSQL(`SELECT srv.servicio as s, ISNULL(srv.modo, 'SIN MODO') as mo, SUM(TRY_CAST(srv.cantidad as FLOAT)) as c FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id JOIN clientes c ON m.cliente_id=c.id WHERE m.fecha_ingreso >= DATEADD(month, -6, GETDATE()) ${filterStr} GROUP BY srv.servicio, ISNULL(srv.modo, 'SIN MODO')`)
+             // Clientes se cuenta localmente desde memoria
+             const myClientsCount = targetCedula 
+                 ? (state.clients || []).filter(c => c.cedulaVendedor === String(targetCedula)).length
+                 : (state.clients || []).length;
+
+             const [segsRes, srvRes, mthRes, prodRes, modoRes] = await Promise.all([
+                 execSQL(`SELECT COUNT(s.id) as c FROM seguimientos s ${wSegs}`),
+                 execSQL(`SELECT srv.servicio as s, SUM(TRY_CAST(srv.cantidad as FLOAT)) as c FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id ${wOrders} GROUP BY srv.servicio`),
+                 execSQL(`SELECT srv.servicio as s, YEAR(m.fecha_ingreso) as y, MONTH(m.fecha_ingreso) as m, SUM(TRY_CAST(srv.cantidad as FLOAT)) as c FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id ${wOrders} AND m.fecha_ingreso >= DATEADD(month, -24, GETDATE()) GROUP BY srv.servicio, YEAR(m.fecha_ingreso), MONTH(m.fecha_ingreso)`),
+                 execSQL(`SELECT srv.servicio as s, ISNULL(srv.producto, 'SIN PRODUCTO') as p, CONVERT(date, m.fecha_ingreso) as d, SUM(TRY_CAST(srv.cantidad as FLOAT)) as c FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id ${wOrders} AND m.fecha_ingreso >= DATEADD(day, -30, GETDATE()) GROUP BY srv.servicio, ISNULL(srv.producto, 'SIN PRODUCTO'), CONVERT(date, m.fecha_ingreso)`),
+                 execSQL(`SELECT srv.servicio as s, ISNULL(srv.modo, 'SIN MODO') as mo, SUM(TRY_CAST(srv.cantidad as FLOAT)) as c FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id ${wOrders} AND m.fecha_ingreso >= DATEADD(month, -6, GETDATE()) GROUP BY srv.servicio, ISNULL(srv.modo, 'SIN MODO')`)
              ]);
 
              if (mounted) {
-                 setMetricClients(clientsRes[0]?.c || 0);
+                 setMetricClients(myClientsCount);
                  setMetricSegs(segsRes[0]?.c || 0);
                  
                  const counts = {};
@@ -279,11 +294,7 @@ export default function DashboardView() {
            <button className="bg-white/20 hover:bg-white/30 text-white px-5 py-3 rounded-xl font-bold transition flex items-center gap-2 backdrop-blur-sm">
               <span className="material-icons text-[20px]">cloud_download</span> Bases
            </button>
-           {!isReadOnly && (
-             <button className="bg-white text-indigo-600 px-6 py-3 rounded-xl font-black shadow-md hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2">
-                <span className="material-icons text-[20px]">add_comment</span> Nuevo Hilo
-             </button>
-           )}
+           
         </div>
       </div>
 

@@ -162,11 +162,7 @@ export default function Header() {
                  />
                </div>
                
-               {(state.view !== 'admin' && state.view !== 'monitor') && (
-                   <button onClick={() => updateState({ view: 'interactions' })} className="px-5 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl font-bold shadow-md flex items-center gap-2 transition hidden sm:flex">
-                       <span className="material-icons">add</span> Nuevo Hilo
-                   </button>
-               )}
+
             </div>
             
             {notificationPanel}
