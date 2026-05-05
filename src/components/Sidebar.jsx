@@ -91,10 +91,8 @@ export default function Sidebar() {
         <>
             <aside id="sidebar" className="w-full md:w-64 bg-slate-900 text-white flex flex-col p-4 z-40">
                 <div className="flex items-center gap-3 mb-8 px-2">
-                    <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center bg-indigo-50 rounded-xl overflow-hidden">
-                        <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="Logo" className="w-8 h-8 object-contain" />
-                    </div>
-                    <h1 className="font-black text-lg tracking-tight leading-tight">CRM user<br/><span className="text-indigo-400">ventas</span></h1>
+                    <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="Logo" className="w-12 h-12 object-contain" />
+                    <h1 className="font-black text-xl tracking-tight leading-tight">CRM user<br/><span className="text-indigo-400">ventas</span></h1>
                 </div>
                 <nav id="sidebar-nav" className="space-y-1 flex-1 overflow-y-auto">
                     {navItems.map((item, idx) => {
