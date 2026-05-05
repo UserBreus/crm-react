@@ -1,6 +1,9 @@
 {
   "rewrites": [
-
+    {
+      "source": "/api/ext/:path*",
+      "destination": "/api/external?extPath=:path*"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

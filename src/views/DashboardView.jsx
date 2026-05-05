@@ -34,7 +34,6 @@ export default function DashboardView() {
   useEffect(() => {
      let mounted = true;
      const fetchData = async () => {
-         setLoadingVars(true);
          let validTargetIds = null;
          let targetCedula = null;
 
@@ -47,7 +46,7 @@ export default function DashboardView() {
 
          if (targetCedula) {
              const misClientes = (state.clients || []).filter(c => c.cedulaVendedor === String(targetCedula));
-             validTargetIds = misClientes.length > 0 ? misClientes.map(c => `'${c.id}'`).join(',') : "''";
+             validTargetIds = misClientes.length > 0 ? misClientes.map(c => `'${String(c.id).replace(/'/g, "''")}'`).join(',') : "''";
          }
 
          const wOrders = validTargetIds ? `WHERE m.cliente_id IN (${validTargetIds})` : `WHERE 1=1`;
@@ -58,13 +57,15 @@ export default function DashboardView() {
              const myClientsCount = targetCedula 
                  ? (state.clients || []).filter(c => c.cedulaVendedor === String(targetCedula)).length
                  : (state.clients || []).length;
+                 
+             if (Object.keys(srvOrderCounts).length === 0) setLoadingVars(true);
 
              const [segsRes, srvRes, mthRes, prodRes, modoRes] = await Promise.all([
                  execSQL(`SELECT COUNT(s.id) as c FROM seguimientos s ${wSegs}`),
-                 execSQL(`SELECT srv.servicio as s, SUM(TRY_CAST(srv.cantidad as FLOAT)) as c FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id ${wOrders} GROUP BY srv.servicio`),
-                 execSQL(`SELECT srv.servicio as s, YEAR(m.fecha_ingreso) as y, MONTH(m.fecha_ingreso) as m, SUM(TRY_CAST(srv.cantidad as FLOAT)) as c FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id ${wOrders} AND m.fecha_ingreso >= DATEADD(month, -24, GETDATE()) GROUP BY srv.servicio, YEAR(m.fecha_ingreso), MONTH(m.fecha_ingreso)`),
-                 execSQL(`SELECT srv.servicio as s, ISNULL(srv.producto, 'SIN PRODUCTO') as p, CONVERT(date, m.fecha_ingreso) as d, SUM(TRY_CAST(srv.cantidad as FLOAT)) as c FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id ${wOrders} AND m.fecha_ingreso >= DATEADD(day, -30, GETDATE()) GROUP BY srv.servicio, ISNULL(srv.producto, 'SIN PRODUCTO'), CONVERT(date, m.fecha_ingreso)`),
-                 execSQL(`SELECT srv.servicio as s, ISNULL(srv.modo, 'SIN MODO') as mo, SUM(TRY_CAST(srv.cantidad as FLOAT)) as c FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id ${wOrders} AND m.fecha_ingreso >= DATEADD(month, -6, GETDATE()) GROUP BY srv.servicio, ISNULL(srv.modo, 'SIN MODO')`)
+                 execSQL(`SELECT srv.servicio as s, SUM(TRY_CAST(REPLACE(CAST(srv.cantidad AS VARCHAR(MAX)), ',', '.') as FLOAT)) as c FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id ${wOrders} GROUP BY srv.servicio`),
+                 execSQL(`SELECT srv.servicio as s, YEAR(m.fecha_ingreso) as y, MONTH(m.fecha_ingreso) as m, SUM(TRY_CAST(REPLACE(CAST(srv.cantidad AS VARCHAR(MAX)), ',', '.') as FLOAT)) as c FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id ${wOrders} AND m.fecha_ingreso >= DATEADD(month, -24, GETDATE()) GROUP BY srv.servicio, YEAR(m.fecha_ingreso), MONTH(m.fecha_ingreso)`),
+                 execSQL(`SELECT srv.servicio as s, ISNULL(srv.producto, 'SIN PRODUCTO') as p, CONVERT(date, m.fecha_ingreso) as d, SUM(TRY_CAST(REPLACE(CAST(srv.cantidad AS VARCHAR(MAX)), ',', '.') as FLOAT)) as c FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id ${wOrders} AND m.fecha_ingreso >= DATEADD(day, -30, GETDATE()) GROUP BY srv.servicio, ISNULL(srv.producto, 'SIN PRODUCTO'), CONVERT(date, m.fecha_ingreso)`),
+                 execSQL(`SELECT srv.servicio as s, ISNULL(srv.modo, 'SIN MODO') as mo, SUM(TRY_CAST(REPLACE(CAST(srv.cantidad AS VARCHAR(MAX)), ',', '.') as FLOAT)) as c FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id ${wOrders} AND m.fecha_ingreso >= DATEADD(month, -6, GETDATE()) GROUP BY srv.servicio, ISNULL(srv.modo, 'SIN MODO')`)
              ]);
 
              if (mounted) {
@@ -90,7 +91,7 @@ export default function DashboardView() {
      };
      if (state.user) fetchData();
      return () => mounted = false;
-  }, [state.user, state.managerView]);
+  }, [state.user, state.managerView, state.reloadTrigger]);
 
   const srvKeys = Object.keys(srvOrderCounts).sort((a, b) => srvOrderCounts[b] - srvOrderCounts[a]);
   const sectorsList = Object.keys(srvOrderCounts).sort();
@@ -328,7 +329,7 @@ export default function DashboardView() {
               srvKeys.map((s, idx) => (
                 <div key={idx} className={`absolute inset-0 transition-all duration-500 ease-in-out transform ${animOrderIdx === idx ? 'opacity-100 translate-y-0 z-10' : 'opacity-0 translate-y-4 z-0'}`}>
                   <div className="flex items-end gap-2 h-full pb-1">
-                      <p className="text-4xl font-black text-slate-800 leading-none">{(srvOrderCounts[s] || 0).toLocaleString()}</p>
+                      <p className="text-4xl font-black text-slate-800 leading-none">{(Math.round(srvOrderCounts[s] || 0)).toLocaleString()}</p>
                       <p className="text-[10px] font-black text-emerald-700 mb-0.5 uppercase tracking-wider bg-emerald-100 px-2 py-1 rounded-lg truncate max-w-[110px]" title={s}>{s}</p>
                   </div>
                 </div>

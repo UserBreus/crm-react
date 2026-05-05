@@ -59,7 +59,7 @@ export default function InteraccionesView() {
          let myClientsForSeg = state.clients || [];
          if (targetCedula) {
              myClientsForSeg = myClientsForSeg.filter(c => c.cedulaVendedor === String(targetCedula));
-             validTargetIds = myClientsForSeg.length > 0 ? myClientsForSeg.map(c => `'${c.id}'`).join(',') : "''";
+             validTargetIds = myClientsForSeg.length > 0 ? myClientsForSeg.map(c => `'${String(c.id).replace(/'/g, "''")}'`).join(',') : "''";
          }
 
          const wSegs = validTargetIds ? `WHERE cliente_id IN (${validTargetIds})` : `WHERE 1=1`;

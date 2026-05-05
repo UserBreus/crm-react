@@ -46,7 +46,9 @@ export default function TeamView() {
   }, [serviceList, currentService]);
 
   const [monthSave, setMonthSave] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const [historyData, setHistoryData] = useState([]);
+  const [confirmSaveModal, setConfirmSaveModal] = useState({ isOpen: false, data: null });
   const fetchedRef = useRef(false);
 
   useEffect(() => {
@@ -59,14 +61,20 @@ export default function TeamView() {
   }, []);
 
   const handleSaveMonthlyRanking = async () => {
-      if (!monthSave) return alert("Por favor selecciona un mes de la casilla.");
-      if (serviceList.length === 0) return alert("No hay servicios configurados para evaluar.");
+      if (!monthSave) return showToast("Por favor selecciona un mes de la casilla.", 3000, 'error');
+      if (serviceList.length === 0) return showToast("No hay servicios configurados para evaluar.", 3000, 'error');
 
       const existing = historyData.filter(r => r.mes === monthSave);
       if (existing.length > 0) {
-          if (!window.confirm(`El mes ${monthSave} ya tiene registros guardados. ¿Deseas sobreescribir los datos con la información actual?`)) return;
+          setConfirmSaveModal({ isOpen: true, data: null });
+          return;
       }
+      calculateAndSaveRanking();
+  };
 
+  const calculateAndSaveRanking = async () => {
+      setConfirmSaveModal({ isOpen: false, data: null });
+      setIsSaving(true);
       showToast('Calculando métricas del mes...');
       const range = getMonthRange(monthSave);
       const payload = [];
@@ -79,15 +87,23 @@ export default function TeamView() {
 
           let globalTotalVol = 0;
 
-          const res = await execSQL(`SELECT srv.cantidad, c.vendedor_id as sel_id, c.id as c_id FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id JOIN clientes c ON m.cliente_id=c.id WHERE srv.servicio='${service}' AND m.fecha_ingreso >= '${new Date(range.start).toISOString()}' AND m.fecha_ingreso <= '${new Date(range.end).toISOString()}'`);
+          const toSqlDate = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          const res = await execSQL(`SELECT srv.cantidad, m.cliente_id as c_id FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id WHERE srv.servicio='${service}' AND m.fecha_ingreso >= '${toSqlDate(new Date(range.start))} 00:00:00' AND m.fecha_ingreso <= '${toSqlDate(new Date(range.end))} 23:59:59'`);
           
           const arr = Array.isArray(res) ? res : [];
           arr.forEach(o => {
-              const qty = parseFloat(o.cantidad) || 0;
+              const qty = parseFloat(String(o.cantidad).replace(',', '.')) || 0;
               if (qty > 0) {
                   globalTotalVol += qty;
                   const cId = String(o.c_id).toLowerCase().trim();
-                  const sellerId = o.sel_id;
+                  
+                  let sellerId = null;
+                  const matrixClient = state.clients?.find(c => String(c.id).toLowerCase().trim() === cId);
+                  if (matrixClient && matrixClient.cedulaVendedor && matrixClient.cedulaVendedor !== 'null') {
+                      const sellerUser = state.users?.find(u => String(u.cedula) === String(matrixClient.cedulaVendedor));
+                      if (sellerUser) sellerId = sellerUser.id;
+                  }
+
                   if (sellerId && stats[sellerId]) {
                       stats[sellerId].volume += qty;
                       stats[sellerId].clientsSet.add(cId);
@@ -122,14 +138,33 @@ export default function TeamView() {
       }
       
       if (hasError) {
-          alert("Error durante la grabación de algunos registros.");
+          showToast("Error durante la grabación de algunos registros.", 3000, 'error');
       } else {
           showToast('Registro de todos los sectores guardado exitosamente.');
       }
       
       const freshData = await execSQL('SELECT * FROM ranking_historial');
       if (Array.isArray(freshData) && !freshData.error) setHistoryData(freshData);
+      setIsSaving(false);
   };
+
+  const lastUpdateOfSelectedMonth = useMemo(() => {
+      if (!monthSave) return null;
+      const records = historyData.filter(r => r.mes === monthSave && r.fecha_actualizacion);
+      if (records.length === 0) return null;
+      const mostRecentStr = records.map(r => r.fecha_actualizacion).sort().reverse()[0];
+      try {
+          // El SQL Server ya retorna la hora de Uruguay, pero el driver de node o JSON le añade la 'Z' (Zulu/UTC).
+          // Para que el navegador no le reste 3 horas erróneamente, simplemente le quitamos la 'Z' si la tiene.
+          let validDateStr = mostRecentStr;
+          if (validDateStr.endsWith('Z')) {
+               validDateStr = validDateStr.replace('Z', '');
+          }
+          const date = new Date(validDateStr);
+          if (isNaN(date.getTime())) return "INVALID DATE";
+          return date.toLocaleString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      } catch(e) { return "ERROR DATE"; }
+  }, [historyData, monthSave]);
 
   const chartData = useMemo(() => {
       const service = currentService;
@@ -164,7 +199,8 @@ export default function TeamView() {
       let mounted = true;
       if (!currentService) return;
 
-      execSQL(`SELECT c.vendedor_id, srv.cantidad, c.id as c_id FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id JOIN clientes c ON m.cliente_id=c.id WHERE srv.servicio='${currentService}' AND m.fecha_ingreso >= '${new Date(startOfMonth).toISOString()}'`).then(res => {
+      const toSqlDate = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      execSQL(`SELECT srv.cantidad, m.cliente_id as c_id FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id WHERE srv.servicio='${currentService}' AND m.fecha_ingreso >= '${toSqlDate(new Date(startOfMonth))} 00:00:00'`).then(res => {
           if (!mounted || !Array.isArray(res)) return;
 
           const sellers = state.users.filter(u => u.role === 'vendedor' || u.role === 'encargado');
@@ -177,13 +213,21 @@ export default function TeamView() {
           let unassignedVol = 0;
 
           res.forEach(o => {
-              const qty = parseFloat(o.cantidad) || 0;
+              const qty = parseFloat(String(o.cantidad).replace(',', '.')) || 0;
               if (qty > 0) {
                   globalTotalVol += qty;
-                  const sellerId = o.vendedor_id;
+                  const cId = String(o.c_id).toLowerCase().trim();
+                  
+                  let sellerId = null;
+                  const matrixClient = state.clients?.find(c => String(c.id).toLowerCase().trim() === cId);
+                  if (matrixClient && matrixClient.cedulaVendedor && matrixClient.cedulaVendedor !== 'null') {
+                      const sellerUser = state.users?.find(u => String(u.cedula) === String(matrixClient.cedulaVendedor));
+                      if (sellerUser) sellerId = sellerUser.id;
+                  }
+
                   if (sellerId && stats[sellerId]) {
                       stats[sellerId].volume += qty;
-                      stats[sellerId].clientsSet.add(o.c_id);
+                      stats[sellerId].clientsSet.add(cId);
                   } else {
                       unassignedVol += qty;
                   }
@@ -305,8 +349,22 @@ export default function TeamView() {
                <p className="text-[10px] text-slate-500 mb-4 font-medium">Guarda la foto de este mes (para <b>todos</b> los sectores) y constrúyete un historial a lo largo del tiempo.</p>
                <div className="flex flex-col gap-3">
                   <input type="month" value={monthSave} onChange={e=>setMonthSave(e.target.value)} className="p-2.5 border border-slate-200 rounded-xl bg-slate-50 font-bold text-slate-700 outline-none w-full shadow-sm cursor-pointer" />
-                  <button onClick={handleSaveMonthlyRanking} className="w-full bg-purple-600 text-white text-xs font-black py-2.5 rounded-xl shadow-md hover:bg-purple-700 transition flex justify-center items-center gap-2">
-                     <span className="material-icons text-[16px]">cloud_upload</span> Archivar Mes Global
+                  {lastUpdateOfSelectedMonth && (
+                      <div className="bg-emerald-50 text-emerald-700 p-2 rounded-xl border border-emerald-100 flex items-center gap-2 mt-1">
+                          <span className="material-icons text-[14px]">history</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider">Actualizado: {lastUpdateOfSelectedMonth}</span>
+                      </div>
+                  )}
+                  <button disabled={isSaving} onClick={handleSaveMonthlyRanking} className={`w-full text-white text-xs font-black py-2.5 rounded-xl shadow-md transition flex justify-center items-center gap-2 ${isSaving ? 'bg-slate-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}>
+                     {isSaving ? (
+                         <>
+                             <span className="material-icons text-[16px] animate-spin">refresh</span> Cargando...
+                         </>
+                     ) : (
+                         <>
+                             <span className="material-icons text-[16px]">cloud_upload</span> Archivar Mes Global
+                         </>
+                     )}
                   </button>
                </div>
             </div>
@@ -331,6 +389,30 @@ export default function TeamView() {
             </div>
          </div>
       </div>
+      
+      {/* Modal de Confirmación de Guardado Histórico */}
+      {confirmSaveModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setConfirmSaveModal({ isOpen: false, data: null })}></div>
+            <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 relative z-10 fade-in border border-slate-100">
+                <div className="w-14 h-14 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <span className="material-icons" style={{fontSize: '28px'}}>cloud_upload</span>
+                </div>
+                <h3 className="text-xl font-black text-center text-slate-800 mb-2">Sobrescribir Histórico</h3>
+                <p className="text-sm text-slate-500 text-center mb-6">
+                    El mes <span className="font-bold text-slate-800">{monthSave}</span> ya tiene registros guardados. ¿Deseas sobrescribir los datos con la información actual calculada?
+                </p>
+                <div className="flex gap-3">
+                    <button onClick={() => setConfirmSaveModal({ isOpen: false, data: null })} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition text-sm">
+                        Cancelar
+                    </button>
+                    <button onClick={calculateAndSaveRanking} className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm">
+                        Sobrescribir
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 }

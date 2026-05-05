@@ -25,13 +25,18 @@ export default function Sidebar() {
             { id: 'import', icon: 'dns', label: 'Clientes en BASE' },
             { id: 'team', icon: 'military_tech', label: 'Ranking de Equipo' }
         );
+    } else if (state.user.role === 'atencion' || state.user.role === 'atencion al cliente') {
+        navItems.push(
+            { id: 'visor', icon: 'visibility', label: 'Visor Local' },
+            { id: 'import', icon: 'dns', label: 'Directorio Global' }
+        );
     } else {
         navItems.push(
             { id: 'dashboard', icon: 'dashboard', label: 'Panel General' },
             { id: 'clients', icon: 'insights', label: 'Mis Clientes' },
             { id: 'interactions', icon: 'forum', label: 'Seguimiento / Hilos' },
             { id: 'visor', icon: 'visibility', label: 'Visor Local' },
-            { id: 'import', icon: 'dns', label: 'Clientes en BASE' }
+            { id: 'import', icon: 'dns', label: 'Directorio Global' }
         );
         if (state.user.role === 'encargado') {
             navItems.push(

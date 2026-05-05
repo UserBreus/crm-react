@@ -58,28 +58,9 @@ export default function VisorView() {
      if (!currentService) return;
 
      const fetchVisor = async () => {
-         setLoading(true);
+         if (paginatedOrders.length === 0) setLoading(true);
          const term = (state.searchTerm || '').replace(/'/g, '').toLowerCase().trim();
-         // Resolvemos los validTargetIds como en DashboardView e InteraccionesView
-         let validTargetIds = null;
-         let targetCedula = null;
-
-         if (state.user?.role !== 'administrador' && state.user?.role !== 'encargado') {
-             targetCedula = state.user?.cedula;
-         } else if (state.managerView !== 'ALL') {
-             const viewId = state.managerView === 'SELF' ? state.user?.id : state.managerView;
-             targetCedula = state.users.find(u => u.id === viewId)?.cedula;
-         }
-
-         if (targetCedula) {
-             const misClientes = (state.clients || []).filter(c => c.cedulaVendedor === String(targetCedula));
-             validTargetIds = misClientes.length > 0 ? misClientes.map(c => `'${c.id}'`).join(',') : "''";
-         }
-
          let whereClause = `srv.servicio = '${currentService}'`;
-         if (validTargetIds) {
-             whereClause += ` AND m.cliente_id IN (${validTargetIds})`;
-         }
 
          if (term) {
               whereClause += ` AND (m.orden_id LIKE '%${term}%' OR m.cliente_id LIKE '%${term}%' OR srv.trabajo LIKE '%${term}%' OR srv.producto LIKE '%${term}%' OR srv.modo LIKE '%${term}%' OR srv.estado LIKE '%${term}%')`;
@@ -244,7 +225,7 @@ export default function VisorView() {
                                    <td className="px-4 py-3 text-xs max-w-[200px] truncate" title={det.trabajo || ''}>{det.trabajo || '-'}</td>
                                    <td className="px-4 py-3 text-xs max-w-[200px] truncate" title={det.producto || ''}>{det.producto || '-'}</td>
                                    <td className="px-4 py-3 text-[10px] font-bold uppercase whitespace-nowrap text-center">{det.modo || '-'}</td>
-                                   <td className="px-4 py-3 text-sm font-black text-right whitespace-nowrap">{(parseFloat(det.cantidad) || 0).toLocaleString()}</td>
+                                   <td className="px-4 py-3 text-sm font-black text-right whitespace-nowrap">{(parseFloat(String(det.cantidad).replace(',', '.')) || 0).toLocaleString('es-UY', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                                    <td className="px-4 py-3 text-center">
                                        {det.estado && det.estado.trim() !== '' ? (
                                            <span className="px-2 py-1 rounded-md font-bold uppercase text-[10px] border whitespace-nowrap shadow-sm" style={{borderColor:'currentColor', color: rowStyle.color || '#1e293b'}}>{det.estado}</span>
@@ -329,7 +310,7 @@ export default function VisorView() {
                                          <div><p className="text-[10px] font-bold text-slate-400 uppercase">Trabajo</p><p className="text-sm font-bold text-slate-700 truncate" title={detail.trabajo}>{detail.trabajo || '-'}</p></div>
                                          <div><p className="text-[10px] font-bold text-slate-400 uppercase">Producto</p><p className="text-sm font-bold text-slate-700 truncate" title={detail.producto}>{detail.producto || '-'}</p></div>
                                          <div><p className="text-[10px] font-bold text-slate-400 uppercase">Modo</p><p className="text-sm font-bold text-amber-600 uppercase">{detail.modo || '-'}</p></div>
-                                         <div><p className="text-[10px] font-bold text-slate-400 uppercase">Cantidad</p><p className="text-sm font-black text-slate-800">{(parseFloat(detail.cantidad) || 0).toLocaleString()} Und.</p></div>
+                                         <div><p className="text-[10px] font-bold text-slate-400 uppercase">Cantidad</p><p className="text-sm font-black text-slate-800">{(parseFloat(String(detail.cantidad).replace(',', '.')) || 0).toLocaleString('es-UY', {minimumFractionDigits: 2, maximumFractionDigits: 2})} Und.</p></div>
                                      </div>
                                  </div>
                              );

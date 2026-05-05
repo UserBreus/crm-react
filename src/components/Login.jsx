@@ -10,12 +10,12 @@ export default function Login() {
     const handleLogin = (e) => {
         e.preventDefault();
         setErrorMsg('');
-        const found = state.users.find(u => u.id === user && u.pass === pass);
+        const found = state.users.find(u => String(u.id).toLowerCase() === String(user).toLowerCase() && u.pass === pass);
         if (found) {
             localStorage.setItem('crm_session_native', JSON.stringify(found));
             updateState({ 
                 user: found, 
-                view: found.role === 'administrador' ? 'admin' : 'dashboard'
+                view: found.role === 'administrador' ? 'admin' : (found.role === 'atencion' || found.role === 'atencion al cliente' ? 'visor' : 'dashboard')
             });
         } else {
             setErrorMsg("Credenciales incorrectas o usuario no encontrado.");

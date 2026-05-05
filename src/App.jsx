@@ -27,7 +27,11 @@ export default function App() {
         const saved = localStorage.getItem('crm_session_native');
         if (saved) {
             try { 
-                updateState({ user: JSON.parse(saved) }); 
+                const u = JSON.parse(saved);
+                updateState({ 
+                    user: u,
+                    view: u.role === 'administrador' ? 'admin' : (u.role === 'atencion' || u.role === 'atencion al cliente' ? 'visor' : 'dashboard')
+                }); 
             } catch (e) { }
         }
 

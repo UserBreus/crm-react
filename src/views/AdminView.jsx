@@ -42,6 +42,7 @@ const PALETTE = [
 
 export default function AdminView() {
   const { state, updateState, showToast, triggerSmartSync } = useAppContext();
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, msg: '', action: null });
   
   const [adminTab, setAdminTab] = useState('usuarios');
   
@@ -1012,6 +1013,33 @@ export default function AdminView() {
                 <p className="text-xs font-bold text-slate-500">Por favor, no cierres esta ventana. El puente tarda unos segundos.</p>
              </div>
          </div>
+      )}
+
+      {/* Modal de Confirmación Genérico */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setConfirmModal({ isOpen: false, msg: '', action: null })}></div>
+            <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 relative z-10 fade-in border border-slate-100">
+                <div className="w-14 h-14 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <span className="material-icons" style={{fontSize: '28px'}}>warning</span>
+                </div>
+                <h3 className="text-xl font-black text-center text-slate-800 mb-2">Confirmar Acción</h3>
+                <p className="text-sm text-slate-500 text-center mb-6 whitespace-pre-wrap">
+                    {confirmModal.msg}
+                </p>
+                <div className="flex gap-3">
+                    <button onClick={() => setConfirmModal({ isOpen: false, msg: '', action: null })} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition text-sm">
+                        Cancelar
+                    </button>
+                    <button onClick={() => {
+                        if (confirmModal.action) confirmModal.action();
+                        setConfirmModal({ isOpen: false, msg: '', action: null });
+                    }} className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm">
+                        Aceptar
+                    </button>
+                </div>
+            </div>
+        </div>
       )}
 
     </div>

@@ -86,7 +86,7 @@ export function AppProvider({ children }) {
                      });
                 }
             } catch (e) { console.error("Poller Error:", e); }
-        }, 20000);
+        }, 5000);
         return () => { isActive = false; clearInterval(interval); };
     }, [state.user?.id, state.user?.role, state.datosConfig]);
 

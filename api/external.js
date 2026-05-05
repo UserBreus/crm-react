@@ -19,7 +19,7 @@ export default async function handler(request, response) {
          method: request.method,
          headers: { 
             'Content-Type': 'application/json',
-            'x-api-key': 'VilardeboyDefensa@2031.' // SECURE: Inserted ONLY in Vercel backend
+            'x-api-key': 'VilardeboyDefensa@2031' // SECURE: Inserted ONLY in Vercel backend
          }
      };
 

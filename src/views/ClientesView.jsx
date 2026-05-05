@@ -21,6 +21,16 @@ function formatDateReal(tsOrStr) {
     } catch(e) { return tsOrStr; }
 }
 
+function getContrastYIQ(hexcolor) {
+    if (!hexcolor) return 'black';
+    hexcolor = hexcolor.replace("#", "");
+    var r = parseInt(hexcolor.substr(0,2),16);
+    var g = parseInt(hexcolor.substr(2,2),16);
+    var b = parseInt(hexcolor.substr(4,2),16);
+    var yiq = ((r*299)+(g*587)+(b*114))/1000;
+    return (yiq >= 128) ? '#1e293b' : 'white';
+}
+
 export default function ClientesView() {
   const { state, updateState, showToast } = useAppContext();
   
@@ -98,9 +108,9 @@ export default function ClientesView() {
       
       // Fetch stats for this page
       if (pagArr.length === 0) return;
-      const ids = pagArr.map(c => typeof c.id === 'string' ? `'${c.id}'` : c.id).join(',');
+      const ids = pagArr.map(c => typeof c.id === 'string' ? `'${c.id.replace(/'/g, "''")}'` : c.id).join(',');
       
-      execSQL(`SELECT m.cliente_id, srv.servicio, SUM(srv.cantidad) as vol, COUNT(srv.servicio) as ord FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id = m.orden_id WHERE m.cliente_id IN (${ids}) GROUP BY m.cliente_id, srv.servicio`).then(res => {
+      execSQL(`SELECT m.cliente_id, srv.servicio, SUM(TRY_CAST(REPLACE(CAST(srv.cantidad AS VARCHAR(MAX)), ',', '.') as FLOAT)) as vol, COUNT(srv.servicio) as ord FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id = m.orden_id WHERE m.cliente_id IN (${ids}) GROUP BY m.cliente_id, srv.servicio`).then(res => {
           if (!Array.isArray(res)) return;
           setClientStatsCache(prev => {
               const next = { ...prev };
@@ -116,14 +126,23 @@ export default function ClientesView() {
   useEffect(() => {
      if (!activeRankSrv) return;
      let mounted = true;
-     let filterStr = '';
+     let targetCedula = null;
      if (state.user?.role !== 'administrador' && state.user?.role !== 'encargado') {
-         filterStr = `AND c.vendedor_id = '${state.user?.id}'`;
+         targetCedula = state.user?.cedula;
      } else if (state.managerView !== 'ALL') {
-         filterStr = `AND c.vendedor_id = '${state.managerView === 'SELF' ? state.user?.id : state.managerView}'`;
+         const viewId = state.managerView === 'SELF' ? state.user?.id : state.managerView;
+         targetCedula = state.users.find(u => u.id === viewId)?.cedula;
      }
 
-     execSQL(`SELECT TOP 10 m.cliente_id, SUM(srv.cantidad) as vol FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id JOIN clientes c ON m.cliente_id=c.id WHERE srv.servicio='${activeRankSrv}' ${filterStr} GROUP BY m.cliente_id ORDER BY vol DESC`).then(res => {
+     let validTargetIds = null;
+     if (targetCedula) {
+         const misClientes = (state.clients || []).filter(c => c.cedulaVendedor === String(targetCedula));
+         validTargetIds = misClientes.length > 0 ? misClientes.map(c => `'${String(c.id).replace(/'/g, "''")}'`).join(',') : "''";
+     }
+
+     const filterStr = validTargetIds ? `AND m.cliente_id IN (${validTargetIds})` : ``;
+
+     execSQL(`SELECT TOP 10 m.cliente_id, SUM(TRY_CAST(REPLACE(CAST(srv.cantidad AS VARCHAR(MAX)), ',', '.') as FLOAT)) as vol FROM ordenes_servicios srv JOIN ordenes_maestras m ON srv.orden_id=m.orden_id WHERE srv.servicio='${activeRankSrv}' ${filterStr} GROUP BY m.cliente_id ORDER BY vol DESC`).then(res => {
          if (mounted && Array.isArray(res)) {
              setRankingData({
                  labels: res.map(r => String(r.cliente_id)),
@@ -210,7 +229,7 @@ export default function ClientesView() {
                 if (!isNaN(parsed)) t = parsed;
             }
             return t >= start && t <= end;
-        }).reduce((a, o) => a + (parseFloat(o.cantidad) || 0), 0);
+        }).reduce((a, o) => a + (parseFloat(String(o.cantidad).replace(',', '.')) || 0), 0);
         dataQty.push(sum);
     }
 
@@ -220,7 +239,7 @@ export default function ClientesView() {
       const val = o.producto ? String(o.producto).trim() : 'Sin Datos';
       const finalVal = val === '' ? 'Sin Datos' : val;
       if (!prodAgg[finalVal]) prodAgg[finalVal] = 0;
-      prodAgg[finalVal] += (parseFloat(o.cantidad) || 0);
+      prodAgg[finalVal] += (parseFloat(String(o.cantidad).replace(',', '.')) || 0);
     });
     const pArr = Object.keys(prodAgg).map(k => ({ label: k, vol: prodAgg[k] })).sort((a, b) => b.vol - a.vol);
     const topP = pArr.slice(0, 4);
@@ -272,7 +291,7 @@ export default function ClientesView() {
           </div>
           <div className="mt-5 bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Volumen Total Global:</span>
-            <span className="text-lg font-black text-slate-800">{rankingData.total.toLocaleString()} Und.</span>
+            <span className="text-lg font-black text-slate-800">{rankingData.total.toLocaleString('es-UY', {minimumFractionDigits: 2, maximumFractionDigits: 2})} Und.</span>
           </div>
         </div>
 
@@ -314,7 +333,7 @@ export default function ClientesView() {
                           </td>
                           <td className="px-4 py-3 text-right">
                             <span className="font-black text-indigo-600 text-sm inline-block transition-all">
-                              {(stats[initialSrv]?.vol || 0).toLocaleString()}
+                              {(stats[initialSrv]?.vol || 0).toLocaleString('es-UY', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                             </span> <span className="text-[9px] text-slate-400">UND</span>
                           </td>
                           <td className="px-4 py-3 text-center"><span className="material-icons text-slate-300 group-hover:text-indigo-500 transition" style={{fontSize: '18px'}}>chevron_right</span></td>
@@ -444,11 +463,33 @@ export default function ClientesView() {
                                 <td className="px-4 py-3 text-xs font-black text-slate-800 whitespace-nowrap">{o.orden || '-'}</td>
                                 <td className="px-4 py-3 text-xs text-slate-600 max-w-[120px] truncate" title={o.trabajo}>{o.trabajo || '-'}</td>
                                 <td className="px-4 py-3 text-xs text-slate-600">{o.producto || '-'}</td>
-                                <td className="px-4 py-3 text-[10px]"><span className="bg-indigo-50 text-indigo-700 px-2 py-1 rounded-md font-bold uppercase whitespace-nowrap border border-indigo-100">{o.estado || 'REGISTRADO'}</span></td>
+                                <td className="px-4 py-3 text-[10px]">
+                                    {(() => {
+                                        const getContrastYIQ = (hexcolor) => {
+                                            hexcolor = hexcolor.replace("#", "");
+                                            const r = parseInt(hexcolor.substr(0, 2), 16);
+                                            const g = parseInt(hexcolor.substr(2, 2), 16);
+                                            const b = parseInt(hexcolor.substr(4, 2), 16);
+                                            const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+                                            return (yiq >= 128) ? 'black' : 'white';
+                                        };
+                                        const estadoVal = (o.estado || '').trim().toLowerCase();
+                                        const customHexColor = state.coloresEstados ? state.coloresEstados[estadoVal] : null;
+                                        let customStyle = {};
+                                        let estadoColorClass = 'text-indigo-700 bg-indigo-50 border-indigo-100';
+                                        
+                                        if (customHexColor && customHexColor.startsWith('#')) {
+                                            customStyle = { backgroundColor: customHexColor, color: getContrastYIQ(customHexColor), borderColor: customHexColor };
+                                            estadoColorClass = 'shadow-sm';
+                                        }
+                                        
+                                        return <span className={`px-2 py-1 rounded-md font-bold uppercase whitespace-nowrap border ${estadoColorClass}`} style={customStyle}>{o.estado || 'REGISTRADO'}</span>;
+                                    })()}
+                                </td>
                                 <td className="px-4 py-3">
                                   <div className="flex items-center gap-1 flex-wrap">
                                     <span className="font-black text-indigo-600 text-[10px] tracking-wider">{o.servicio}</span>
-                                    <span className="text-[11px] font-bold text-slate-800 border-l border-slate-300 pl-1">{parseFloat(o.cantidad)||0} und.</span>
+                                    <span className="text-[11px] font-bold text-slate-800 border-l border-slate-300 pl-1">{(parseFloat(String(o.cantidad).replace(',', '.'))||0).toLocaleString('es-UY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} und.</span>
                                   </div>
                                 </td>
                                 <td className="px-4 py-3 text-[10px] font-mono text-slate-500 whitespace-nowrap">{o.fecha ? formatDateReal(o.fecha) : '-'}</td>

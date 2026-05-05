@@ -22,7 +22,6 @@ export default async function handler(request, response) {
      
      // FIREWALL ANTI-DESTRUCCIÓN
      if (/DROP\s+TABLE/i.test(upperQuery) || 
-         /\bDELETE\s+FROM\b/i.test(upperQuery) || 
          /\bTRUNCATE\b/i.test(upperQuery) || 
          /\bALTER\s+TABLE\b/i.test(upperQuery) ||
          /\bDROP\s+DATABASE\b/i.test(upperQuery) ||
