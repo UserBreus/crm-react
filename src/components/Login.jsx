@@ -13,6 +13,7 @@ export default function Login() {
         const found = state.users.find(u => String(u.id).toLowerCase() === String(user).toLowerCase() && u.pass === pass);
         if (found) {
             localStorage.setItem('crm_session_native', JSON.stringify(found));
+            localStorage.setItem('nexus_custom_user', JSON.stringify(found)); // Log into portal too
             updateState({ 
                 user: found, 
                 view: found.role === 'administrador' ? 'admin' : (found.role === 'atencion' || found.role === 'atencion al cliente' ? 'visor' : 'dashboard')

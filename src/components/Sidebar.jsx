@@ -49,6 +49,7 @@ export default function Sidebar() {
     const handleLogout = () => {
         updateState({ user: null });
         localStorage.removeItem('crm_session_native');
+        localStorage.removeItem('nexus_custom_user'); // Log out from portal too
     };
 
     const handleSaveProfile = async (e) => {

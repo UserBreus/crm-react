@@ -21,6 +21,17 @@ export default function App() {
 
     useEffect(() => {
         initAuthAndFetch();
+
+        // Escuchar eventos de logout desde otras pestañas (Portal o Stock)
+        const handleStorageChange = (e) => {
+            if (e.key === 'nexus_custom_user' && !e.newValue) {
+                // Si alguien borró nexus_custom_user en otra pestaña, cerramos sesión acá
+                updateState({ user: null });
+                localStorage.removeItem('crm_session_native');
+            }
+        };
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
     const initAuthAndFetch = async () => {
