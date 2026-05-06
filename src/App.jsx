@@ -24,15 +24,24 @@ export default function App() {
     }, []);
 
     const initAuthAndFetch = async () => {
-        const saved = localStorage.getItem('crm_session_native');
+        const ssoSaved = localStorage.getItem('nexus_custom_user');
+        const localSaved = localStorage.getItem('crm_session_native');
+        const saved = ssoSaved || localSaved;
         if (saved) {
             try { 
                 const u = JSON.parse(saved);
+                // Mapear rol 'admin' a 'administrador' por si viene del portal así
+                const mappedRole = String(u.role).toLowerCase() === 'admin' ? 'administrador' : u.role;
                 updateState({ 
-                    user: u,
-                    view: u.role === 'administrador' ? 'admin' : (u.role === 'atencion' || u.role === 'atencion al cliente' ? 'visor' : 'dashboard')
+                    user: { ...u, role: mappedRole },
+                    view: mappedRole === 'administrador' ? 'admin' : (mappedRole === 'atencion' || mappedRole === 'atencion al cliente' ? 'visor' : 'dashboard')
                 }); 
-            } catch (e) { }
+                
+                // Si entró por SSO, sincronizamos la sesión local
+                if (ssoSaved && !localSaved) {
+                    localStorage.setItem('crm_session_native', JSON.stringify({ ...u, role: mappedRole }));
+                }
+            } catch (e) { console.error("Error parsing session:", e); }
         }
 
         updateState({ loading: true });

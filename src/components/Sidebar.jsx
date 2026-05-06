@@ -90,10 +90,15 @@ export default function Sidebar() {
     return (
         <>
             <aside id="sidebar" className="w-full md:w-64 bg-slate-900 text-white flex flex-col p-4 z-40">
-                <div className="flex items-center gap-3 mb-8 px-2">
+                <div className="flex items-center gap-3 mb-6 px-2">
                     <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="Logo" className="w-12 h-12 object-contain" />
                     <h1 className="font-black text-xl tracking-tight leading-tight">CRM user<br/><span className="text-indigo-400">ventas</span></h1>
                 </div>
+                
+                <a href="/" className="flex items-center justify-center gap-2 mb-6 mx-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 py-2.5 px-4 rounded-xl font-bold text-sm transition-all shadow-sm">
+                    <span className="material-icons text-[18px]">arrow_back</span>
+                    Volver al Portal
+                </a>
                 <nav id="sidebar-nav" className="space-y-1 flex-1 overflow-y-auto">
                     {navItems.map((item, idx) => {
                         if (item.id === 'div') {
