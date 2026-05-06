@@ -4,7 +4,6 @@ import { execSQL } from './api';
 
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
-import Login from './components/Login';
 
 import DashboardView from './views/DashboardView';
 import ClientesView from './views/ClientesView';
@@ -71,7 +70,8 @@ export default function App() {
     }
 
     if (!state.user) {
-        return <Login />;
+        window.location.href = '/';
+        return null;
     }
 
     const renderMainContent = () => {
