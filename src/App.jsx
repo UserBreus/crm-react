@@ -119,8 +119,22 @@ export default function App() {
     const renderMainContent = () => {
         // Validación final de renderizado
         if (state.user && !state.user.is_super_admin && !checkAccess(state.view)) {
-            // Si intenta renderizar una vista a la que no tiene acceso, mostramos un error de seguridad
-            // O forzamos silenciosamente la primera vista disponible (opcional)
+            // Intento de auto-redirección si la vista actual no está permitida
+            const vt = state.user.permisos_obj?.ventas_tools;
+            if (vt) {
+                const available = Object.keys(vt).find(k => vt[k].access !== 'none');
+                if (available && available !== state.view) {
+                    setTimeout(() => updateState({ view: available }), 0);
+                    return (
+                        <div className="flex h-full w-full items-center justify-center flex-col text-slate-400">
+                            <span className="material-icons text-6xl text-indigo-500 animate-spin mb-4">sync</span>
+                            <h2 className="text-xl font-bold">Redirigiendo a zona autorizada...</h2>
+                        </div>
+                    );
+                }
+            }
+
+            // Si llegamos aquí, no hay a dónde redirigirlo o falló
             return (
                 <div className="flex h-full w-full items-center justify-center flex-col text-slate-400 fade-in">
                     <span className="material-icons text-6xl text-slate-300 mb-4">lock</span>
