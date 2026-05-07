@@ -59,7 +59,7 @@ export default function App() {
                 }
                 
                 if (!hasVentasApp) {
-                    updateState({ accessDenied: true });
+                    updateState({ accessDenied: true, loading: false });
                     return; // Detener flujo de login
                 }
                 
@@ -83,15 +83,6 @@ export default function App() {
         }
     };
 
-    if (state.loading && state.users.length === 0) {
-        return (
-            <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-900 text-white">
-                <span className="material-icons text-6xl text-indigo-500 animate-spin mb-4">sync</span>
-                <p className="font-bold text-slate-300">Descargando Base Maestra de SQL Server...</p>
-            </div>
-        );
-    }
-
     if (state.accessDenied) {
         return (
             <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-900 text-white p-6 text-center">
@@ -99,6 +90,15 @@ export default function App() {
                 <h1 className="text-2xl font-black text-slate-100 mb-2">Acceso Denegado</h1>
                 <p className="font-bold text-slate-400 mb-8 max-w-md">Tu cuenta no tiene los permisos necesarios para acceder a la aplicación de Ventas. Contacta a un administrador.</p>
                 <a href="/" className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md">Volver al Portal Central</a>
+            </div>
+        );
+    }
+
+    if (state.loading && state.users.length === 0) {
+        return (
+            <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-900 text-white">
+                <span className="material-icons text-6xl text-indigo-500 animate-spin mb-4">sync</span>
+                <p className="font-bold text-slate-300">Descargando Base Maestra de SQL Server...</p>
             </div>
         );
     }
