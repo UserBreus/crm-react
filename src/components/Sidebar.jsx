@@ -13,6 +13,8 @@ export default function Sidebar() {
     const [teamUsers, setTeamUsers] = useState([]);
     const [loadingTeam, setLoadingTeam] = useState(false);
     const [avatarSeed, setAvatarSeed] = useState('');
+    const [avatarBase64, setAvatarBase64] = useState(null);
+    const [savingAvatar, setSavingAvatar] = useState(false);
 
     if (!state.user) return null;
 
@@ -87,13 +89,18 @@ export default function Sidebar() {
                 updateQuery += ", pass = ?";
                 params.push(profPass);
             }
+            if (avatarBase64) {
+                updateQuery += ", avatar = ?";
+                params.push(avatarBase64);
+            }
             updateQuery += " WHERE id = ?";
             params.push(state.user.id);
 
             const res = await execSQL(updateQuery, params);
             if (res && !res.error) {
                 showToast('Perfil actualizado correctamente.');
-                updateState({ user: { ...state.user, name: profName, ...(profPass.trim() ? { pass: profPass } : {}) } });
+                updateState({ user: { ...state.user, name: profName, avatar: avatarBase64 || state.user.avatar, ...(profPass.trim() ? { pass: profPass } : {}) } });
+                setIsProfileModalOpen(false);
             } else {
                 showToast('Error actualizando perfil.');
             }
@@ -124,6 +131,7 @@ export default function Sidebar() {
         setProfName(state.user.name);
         setProfPass('');
         setAvatarSeed(state.user.id || 'nexus');
+        setAvatarBase64(state.user.avatar || null);
         setActiveTab('perfil');
         setIsProfileModalOpen(true);
         if (state.user.cedula) {
@@ -137,13 +145,34 @@ export default function Sidebar() {
         }
     };
 
+    const generateAvatarFromSeed = async () => {
+        setSavingAvatar(true);
+        try {
+            const url = `https://api.dicebear.com/7.x/avataaars/png?seed=${avatarSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9&size=256`;
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setAvatarBase64(reader.result);
+                setSavingAvatar(false);
+                showToast('Avatar generado. Guarda tu perfil para aplicarlo.');
+            };
+            reader.readAsDataURL(blob);
+        } catch (err) {
+            console.error(err);
+            setSavingAvatar(false);
+            showToast('Error generando avatar.');
+        }
+    };
+
     const handleTabChange = (tab) => {
         setActiveTab(tab);
         if (tab === 'equipo' && teamUsers.length === 0) fetchTeamUsers();
     };
 
-    const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed || state.user?.id || 'nexus'}&backgroundColor=b6e3f4,c0aede,d1d4f9`;
-    const sidebarAvatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${state.user?.id || 'nexus'}&backgroundColor=b6e3f4,c0aede,d1d4f9`;
+    const diceBearPreview = `https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed || state.user?.id || 'nexus'}&backgroundColor=b6e3f4,c0aede,d1d4f9`;
+    const currentAvatar = avatarBase64 || state.user?.avatar || diceBearPreview;
+    const sidebarAvatar = state.user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${state.user?.id || 'nexus'}&backgroundColor=b6e3f4,c0aede,d1d4f9`;
 
     const getRoleBadge = (rol) => {
         const r = String(rol).toLowerCase().trim();
@@ -186,7 +215,7 @@ export default function Sidebar() {
                 <div className="mt-auto pt-4 border-t border-slate-800">
                     <div className="px-3 flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
-                            <img src={sidebarAvatarUrl} alt="Avatar" className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-700" />
+                            <img src={sidebarAvatar} alt="Avatar" className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-700" />
                             <div className="overflow-hidden">
                                 <p className="text-sm font-bold truncate">{state.user?.name}</p>
                                 <p className="text-[10px] text-indigo-400 capitalize font-medium">{state.user?.role}</p>
@@ -227,10 +256,17 @@ export default function Sidebar() {
                                 <form id="profileFormCRM" onSubmit={handleSaveProfile} className="space-y-6">
                                     {/* Avatar */}
                                     <div className="flex flex-col items-center justify-center mb-4">
-                                        <img src={avatarUrl} alt="Avatar" className="w-24 h-24 rounded-3xl object-cover ring-4 ring-slate-100 shadow-xl" />
-                                        <div className="mt-3">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Semilla del Avatar</label>
-                                            <input type="text" value={avatarSeed} onChange={e => setAvatarSeed(e.target.value)} placeholder="Escribe algo..." className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center outline-none focus:border-indigo-500" />
+                                        <img src={currentAvatar} alt="Avatar" className="w-24 h-24 rounded-3xl object-cover ring-4 ring-slate-100 shadow-xl" />
+                                        <div className="mt-3 flex flex-col items-center gap-2 w-full max-w-xs">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Generar Avatar con Semilla</label>
+                                            <div className="flex gap-2 w-full">
+                                                <input type="text" value={avatarSeed} onChange={e => setAvatarSeed(e.target.value)} placeholder="Escribe tu nombre..." className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center outline-none focus:border-indigo-500" />
+                                                <button type="button" onClick={generateAvatarFromSeed} disabled={savingAvatar} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition active:scale-95 disabled:opacity-50 flex items-center gap-1">
+                                                    <span className="material-icons text-[16px]">{savingAvatar ? 'sync' : 'auto_awesome'}</span>
+                                                    {savingAvatar ? '...' : 'Generar'}
+                                                </button>
+                                            </div>
+                                            <img src={diceBearPreview} alt="Preview" className="w-16 h-16 rounded-xl opacity-60 border border-slate-200 mt-1" title="Vista previa del avatar que se generará" />
                                         </div>
                                     </div>
 
