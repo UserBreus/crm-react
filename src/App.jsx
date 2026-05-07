@@ -40,8 +40,8 @@ export default function App() {
         if (saved) {
             try { 
                 const u = JSON.parse(saved);
-                // Mapear rol 'admin' a 'administrador' por si viene del portal así
-                const mappedRole = String(u.role).toLowerCase() === 'admin' ? 'administrador' : u.role;
+                const mappedRole = u.is_super_admin ? 'administrador' : (u.role ? (String(u.role).toLowerCase() === 'admin' ? 'administrador' : u.role) : 'vendedor');
+                const mappedName = u.name || u.nombre_completo || u.usuario || u.email || 'Usuario Maestro';
                 
                 let hasVentasApp = false;
                 
@@ -56,7 +56,7 @@ export default function App() {
                     return; // Detener flujo de login
                 }
                 
-                const finalUser = { ...u, role: mappedRole };
+                const finalUser = { ...u, role: mappedRole, name: mappedName };
                 
                 let defaultView = mappedRole === 'administrador' ? 'admin' : (mappedRole === 'atencion' || mappedRole === 'atencion al cliente' ? 'visor' : 'dashboard');
                 
