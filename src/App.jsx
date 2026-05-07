@@ -42,14 +42,35 @@ export default function App() {
                 const u = JSON.parse(saved);
                 // Mapear rol 'admin' a 'administrador' por si viene del portal así
                 const mappedRole = String(u.role).toLowerCase() === 'admin' ? 'administrador' : u.role;
+                
+                let parsedPerms = null;
+                try {
+                    parsedPerms = typeof u.permisos === 'string' ? JSON.parse(u.permisos) : u.permisos;
+                } catch(e) {}
+                
+                let hasVentasApp = true;
+                let vTools = null;
+                
+                if (parsedPerms && parsedPerms.version === 2) {
+                    hasVentasApp = Array.isArray(parsedPerms.apps) && parsedPerms.apps.includes('ventas');
+                    vTools = Array.isArray(parsedPerms.ventas_tools) ? parsedPerms.ventas_tools : [];
+                }
+                
+                if (!hasVentasApp) {
+                    updateState({ accessDenied: true });
+                    return; // Detener flujo de login
+                }
+                
+                const finalUser = { ...u, role: mappedRole, ventas_tools: vTools };
+                
                 updateState({ 
-                    user: { ...u, role: mappedRole },
+                    user: finalUser,
                     view: mappedRole === 'administrador' ? 'admin' : (mappedRole === 'atencion' || mappedRole === 'atencion al cliente' ? 'visor' : 'dashboard')
                 }); 
                 
                 // Si entró por SSO, sincronizamos la sesión local
                 if (ssoSaved && !localSaved) {
-                    localStorage.setItem('crm_session_native', JSON.stringify({ ...u, role: mappedRole }));
+                    localStorage.setItem('crm_session_native', JSON.stringify(finalUser));
                 }
             } catch (e) { console.error("Error parsing session:", e); }
         }
@@ -65,6 +86,17 @@ export default function App() {
             <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-900 text-white">
                 <span className="material-icons text-6xl text-indigo-500 animate-spin mb-4">sync</span>
                 <p className="font-bold text-slate-300">Descargando Base Maestra de SQL Server...</p>
+            </div>
+        );
+    }
+
+    if (state.accessDenied) {
+        return (
+            <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-900 text-white p-6 text-center">
+                <span className="material-icons text-6xl text-red-500 mb-4">gpp_bad</span>
+                <h1 className="text-2xl font-black text-slate-100 mb-2">Acceso Denegado</h1>
+                <p className="font-bold text-slate-400 mb-8 max-w-md">Tu cuenta no tiene los permisos necesarios para acceder a la aplicación de Ventas. Contacta a un administrador.</p>
+                <a href="/" className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md">Volver al Portal Central</a>
             </div>
         );
     }

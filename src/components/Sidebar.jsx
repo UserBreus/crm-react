@@ -46,6 +46,25 @@ export default function Sidebar() {
         }
     }
 
+    let finalNavItems = navItems;
+
+    // Aplicar control granular de herramientas (JSON v2)
+    if (state.user.ventas_tools) {
+        finalNavItems = finalNavItems.filter(item => {
+            if (item.id === 'div') return true;
+            return state.user.ventas_tools.includes(item.id);
+        });
+
+        // Limpiar divisores huérfanos
+        finalNavItems = finalNavItems.filter((item, i, arr) => {
+            if (item.id === 'div') {
+                const nextItem = arr[i + 1];
+                return nextItem && nextItem.id !== 'div';
+            }
+            return true;
+        });
+    }
+
     const handleLogout = () => {
         updateState({ user: null });
         localStorage.removeItem('crm_session_native');
@@ -101,7 +120,7 @@ export default function Sidebar() {
                     Volver al Portal
                 </a>
                 <nav id="sidebar-nav" className="space-y-1 flex-1 overflow-y-auto">
-                    {navItems.map((item, idx) => {
+                    {finalNavItems.map((item, idx) => {
                         if (item.id === 'div') {
                             return <div key={`div-${idx}`} className="pt-4 pb-2 px-3 text-[10px] uppercase font-bold text-slate-500 tracking-widest">{item.label}</div>;
                         }
