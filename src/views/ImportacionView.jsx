@@ -8,6 +8,7 @@ export default function ImportacionView() {
   const { state, updateState, showToast, forceSilentSync } = useAppContext();
 
   const isAdmin = state.user?.role === 'administrador' || state.user?.role === 'encargado' || state.user?.is_super_admin;
+  const isVendedor = !isAdmin;
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
