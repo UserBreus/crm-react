@@ -72,13 +72,14 @@ export default function App() {
                     }
 
                     if (!isAllowed) {
+                        const validViews = ['dashboard', 'clients', 'interactions', 'import', 'visor', 'team', 'admin', 'monitor'];
                         let available = null;
                         if (Array.isArray(vt)) {
-                            available = vt.length > 0 ? vt[0] : null;
+                            available = vt.find(v => validViews.includes(v)) || null;
                         } else {
                             available = Object.keys(vt).find(k => {
                                 const toolAccess = typeof vt[k] === 'string' ? vt[k] : vt[k].access;
-                                return toolAccess !== 'none';
+                                return toolAccess !== 'none' && validViews.includes(k);
                             });
                         }
                         
@@ -140,13 +141,14 @@ export default function App() {
             // Intento de auto-redirección si la vista actual no está permitida
             const vt = state.user.permisos_obj?.ventas_tools;
             if (vt) {
+                const validViews = ['dashboard', 'clients', 'interactions', 'import', 'visor', 'team', 'admin', 'monitor'];
                 let available = null;
                 if (Array.isArray(vt)) {
-                    available = vt.length > 0 ? vt[0] : null;
+                    available = vt.find(v => validViews.includes(v)) || null;
                 } else {
                     available = Object.keys(vt).find(k => {
                         const toolAccess = typeof vt[k] === 'string' ? vt[k] : vt[k].access;
-                        return toolAccess !== 'none';
+                        return toolAccess !== 'none' && validViews.includes(k);
                     });
                 }
                 

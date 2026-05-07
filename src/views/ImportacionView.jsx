@@ -7,7 +7,7 @@ const SELLER_COLORS = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#
 export default function ImportacionView() {
   const { state, updateState, showToast, forceSilentSync } = useAppContext();
 
-  const isVendedor = state.user?.role === 'vendedor';
+  const isAdmin = state.user?.role === 'administrador' || state.user?.role === 'encargado' || state.user?.is_super_admin;
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
@@ -31,11 +31,11 @@ export default function ImportacionView() {
   }
 
   const safeFilter = useMemo(() => {
-     if (isVendedor && filter !== 'unassigned' && String(filter) !== String(state.user?.id)) {
+     if (!isAdmin && filter !== 'unassigned' && String(filter) !== String(state.user?.id)) {
          return 'unassigned';
      }
      return filter;
-  }, [filter, isVendedor, state.user]);
+  }, [filter, isAdmin, state.user]);
 
   const [paginatedClients, setPaginatedClients] = useState([]);
   const [totalFiltered, setTotalFiltered] = useState(0);
@@ -56,7 +56,7 @@ export default function ImportacionView() {
       }
 
       // Aplicar candado del filtro de vendedores por Cédula (relación)
-      if (isVendedor) {
+      if (!isAdmin) {
           if (safeFilter === 'unassigned') {
               filtered = filtered.filter(c => !c.cedulaVendedor || String(c.cedulaVendedor).trim() === '' || String(c.cedulaVendedor) === 'null');
           } else if (String(safeFilter) === String(state.user?.id)) {
@@ -174,7 +174,7 @@ export default function ImportacionView() {
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
            <select value={safeFilter} onChange={e => handleFilterChange(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm w-full sm:w-auto cursor-pointer">
-              {isVendedor ? (
+              {!isAdmin ? (
                   <>
                      <option value="unassigned">Filtrar: IDs LIBRES</option>
                      <option value={state.user?.id}>Ver: Mis Clientes (Personal)</option>
