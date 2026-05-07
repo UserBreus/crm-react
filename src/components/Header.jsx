@@ -36,10 +36,17 @@ export default function Header() {
         setIsNotifOpen(!isNotifOpen);
     };
 
-    const isAdmin = state.user.role === 'encargado' || state.user.role === 'administrador';
+    const isEncargado = state.user.role === 'encargado';
+    const isAdministrador = state.user.role === 'administrador' || state.user.is_super_admin;
+    const isAdmin = isEncargado || isAdministrador;
     const showManagerSelector = isAdmin && !['import', 'visor', 'team', 'admin', 'monitor'].includes(state.view);
 
-    const sellers = state.users.filter(u => u.role === 'vendedor' || u.role === 'encargado');
+    // Encargado solo ve vendedores; Administrador ve vendedores + encargados
+    const sellers = state.users.filter(u => {
+        if (u.id === state.user.id) return false; // No mostrarse a sí mismo
+        if (isEncargado) return u.role === 'vendedor';
+        return u.role === 'vendedor' || u.role === 'encargado';
+    });
 
     const handleSearch = (e) => {
         // AppContext expects string for searchTerm updates
@@ -117,12 +124,12 @@ export default function Header() {
                
                {showManagerSelector && (
                    <select 
-                       value={state.managerView || 'ALL'} 
+                       value={state.managerView || (isEncargado ? 'SELF' : 'ALL')} 
                        onChange={e => updateState({ managerView: e.target.value })} 
                        className="bg-indigo-100 border border-indigo-200 text-indigo-800 text-[11px] font-black uppercase tracking-wider rounded-xl px-3 py-2.5 outline-none cursor-pointer shadow-sm w-full md:w-auto"
                    >
                        <option value="SELF">Mi Cartera (Personal)</option>
-                       <option value="ALL">🌐 Vista Global (Todos)</option>
+                       {isAdministrador && <option value="ALL">🌐 Vista Global (Todos)</option>}
                        {sellers.map(s => <option key={s.id} value={s.id}>👤 Ver a: {s.name}</option>)}
                    </select>
                )}

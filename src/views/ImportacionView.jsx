@@ -7,7 +7,9 @@ const SELLER_COLORS = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#
 export default function ImportacionView() {
   const { state, updateState, showToast, forceSilentSync } = useAppContext();
 
-  const isAdmin = state.user?.role === 'administrador' || state.user?.role === 'encargado' || state.user?.is_super_admin;
+  const isEncargado = state.user?.role === 'encargado';
+  const isAdministrador = state.user?.role === 'administrador' || state.user?.is_super_admin;
+  const isAdmin = isEncargado || isAdministrador;
   const isVendedor = !isAdmin;
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -19,7 +21,11 @@ export default function ImportacionView() {
 
   const [modalClient, setModalClient] = useState(null);
 
-  const validSellers = useMemo(() => state.users.filter(u => u.role === 'vendedor' || u.role === 'encargado'), [state.users]);
+  // Encargado solo ve vendedores; Admin ve vendedores + encargados
+  const validSellers = useMemo(() => state.users.filter(u => {
+      if (isEncargado) return u.role === 'vendedor';
+      return u.role === 'vendedor' || u.role === 'encargado';
+  }), [state.users, isEncargado]);
   
   const sellerColorMap = useMemo(() => {
      const map = {};
