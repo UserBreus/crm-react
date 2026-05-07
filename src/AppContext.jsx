@@ -203,24 +203,35 @@ export function AppProvider({ children }) {
         await runSmartSync({ targetService, datosConfig: state.datosConfig, showToast, updateState, mode, options });
     };
 
-    const hasAccess = (toolId) => {
-        if (state.user?.role === 'administrador') return 'write';
-        if (!state.user || !state.user.ventas_tools || typeof state.user.ventas_tools !== 'object') return 'none';
-        
-        const tool = state.user.ventas_tools[toolId];
-        if (!tool) return 'none';
-        
-        return tool.access || 'none';
+    const checkAccess = (toolId, subToolId = null) => {
+        const u = state.user;
+        if (u?.is_super_admin) return true;
+
+        const p = u?.permisos_obj;
+        if (!p) return false;
+
+        if (!p.apps?.includes('ventas')) return false;
+
+        const tool = p.ventas_tools?.[toolId];
+        if (!tool || tool.access === 'none') return false;
+
+        if (subToolId) {
+            const subAccess = tool.sub?.[subToolId];
+            if (subAccess === 'none') return false;
+        }
+
+        return true;
     };
 
-    const hasSubAccess = (toolId, subToolId) => {
-        if (state.user?.role === 'administrador') return 'write';
-        if (!state.user || !state.user.ventas_tools || typeof state.user.ventas_tools !== 'object') return 'none';
-        
-        const tool = state.user.ventas_tools[toolId];
-        if (!tool || !tool.sub) return 'none';
-        
-        return tool.sub[subToolId] || 'none';
+    const getAccessLevel = (toolId, subToolId = null) => {
+        const u = state.user;
+        if (u?.is_super_admin) return 'write';
+        const p = u?.permisos_obj;
+        if (!p) return 'none';
+        const tool = p.ventas_tools?.[toolId];
+        if (!tool || tool.access === 'none') return 'none';
+        if (subToolId) return tool.sub?.[subToolId] || 'none';
+        return tool.access;
     };
 
     const value = {
@@ -232,8 +243,8 @@ export function AppProvider({ children }) {
         getReadNotifications,
         markAsReadNotification,
         openNotificationModal,
-        hasAccess,
-        hasSubAccess
+        checkAccess,
+        getAccessLevel
     };
 
     return (

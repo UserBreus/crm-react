@@ -3,7 +3,7 @@ import { useAppContext } from '../AppContext';
 import { execSQL, getVendedoresExternos } from '../api';
 
 export default function Sidebar() {
-    const { state, updateState, showToast, hasAccess } = useAppContext();
+    const { state, updateState, showToast, checkAccess } = useAppContext();
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     const [profName, setProfName] = useState('');
     const [profPass, setProfPass] = useState('');
@@ -49,10 +49,10 @@ export default function Sidebar() {
     let finalNavItems = navItems;
 
     // Aplicar control granular de herramientas v4
-    if (state.user.ventas_tools && typeof state.user.ventas_tools === 'object') {
+    if (!state.user.is_super_admin && state.user.permisos_obj) {
         finalNavItems = finalNavItems.filter(item => {
             if (item.id === 'div') return true;
-            return hasAccess(`sidebar_${item.id}`) !== 'none';
+            return checkAccess(`sidebar_${item.id}`);
         });
 
         // Limpiar divisores huérfanos

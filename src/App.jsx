@@ -43,19 +43,12 @@ export default function App() {
                 // Mapear rol 'admin' a 'administrador' por si viene del portal así
                 const mappedRole = String(u.role).toLowerCase() === 'admin' ? 'administrador' : u.role;
                 
-                let parsedPerms = null;
-                try {
-                    parsedPerms = typeof u.permisos === 'string' ? JSON.parse(u.permisos) : u.permisos;
-                } catch(e) {}
-                
                 let hasVentasApp = false;
-                let vTools = null;
                 
-                if (mappedRole === 'administrador') {
-                    hasVentasApp = true; // El admin siempre pasa
-                } else if (parsedPerms && parsedPerms.version === 2) {
-                    hasVentasApp = Array.isArray(parsedPerms.apps) && parsedPerms.apps.includes('ventas');
-                    vTools = Array.isArray(parsedPerms.ventas_tools) ? parsedPerms.ventas_tools : [];
+                if (u.is_super_admin) {
+                    hasVentasApp = true;
+                } else if (u.permisos_obj && Array.isArray(u.permisos_obj.apps) && u.permisos_obj.apps.includes('ventas')) {
+                    hasVentasApp = true;
                 }
                 
                 if (!hasVentasApp) {
@@ -63,7 +56,7 @@ export default function App() {
                     return; // Detener flujo de login
                 }
                 
-                const finalUser = { ...u, role: mappedRole, ventas_tools: vTools };
+                const finalUser = { ...u, role: mappedRole };
                 
                 updateState({ 
                     user: finalUser,
