@@ -32,9 +32,11 @@ function getContrastYIQ(hexcolor) {
 }
 
 export default function ClientesView() {
-  const { state, updateState, showToast } = useAppContext();
+  const { state, updateState, showToast, hasSubAccess } = useAppContext();
   
-  const isReadOnly = state.user?.role === 'encargado' && state.managerView !== 'SELF' && state.managerView !== 'ALL';
+  // Combina la lógica antigua (managerView) con la nueva de JSON v4
+  const hasWriteAccess = hasSubAccess('sidebar_clients', 'action_edit') !== 'read' && hasSubAccess('sidebar_clients', 'action_edit') !== 'none';
+  const isReadOnly = (state.user?.role === 'encargado' && state.managerView !== 'SELF' && state.managerView !== 'ALL') || !hasWriteAccess;
 
   // State
   const [currentPage, setCurrentPage] = useState(1);

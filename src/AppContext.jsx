@@ -203,6 +203,26 @@ export function AppProvider({ children }) {
         await runSmartSync({ targetService, datosConfig: state.datosConfig, showToast, updateState, mode, options });
     };
 
+    const hasAccess = (toolId) => {
+        if (state.user?.role === 'administrador') return 'write';
+        if (!state.user || !state.user.ventas_tools || typeof state.user.ventas_tools !== 'object') return 'none';
+        
+        const tool = state.user.ventas_tools[toolId];
+        if (!tool) return 'none';
+        
+        return tool.access || 'none';
+    };
+
+    const hasSubAccess = (toolId, subToolId) => {
+        if (state.user?.role === 'administrador') return 'write';
+        if (!state.user || !state.user.ventas_tools || typeof state.user.ventas_tools !== 'object') return 'none';
+        
+        const tool = state.user.ventas_tools[toolId];
+        if (!tool || !tool.sub) return 'none';
+        
+        return tool.sub[subToolId] || 'none';
+    };
+
     const value = {
         state,
         updateState,
@@ -211,7 +231,9 @@ export function AppProvider({ children }) {
         triggerSmartSync,
         getReadNotifications,
         markAsReadNotification,
-        openNotificationModal
+        openNotificationModal,
+        hasAccess,
+        hasSubAccess
     };
 
     return (
