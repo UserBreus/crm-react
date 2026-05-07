@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../AppContext';
 import { execSQL, getVendedoresExternos } from '../api';
+import AvatarCreator from './AvatarCreator';
 
 export default function Sidebar() {
     const { state, updateState, showToast, checkAccess } = useAppContext();
@@ -14,7 +15,7 @@ export default function Sidebar() {
     const [loadingTeam, setLoadingTeam] = useState(false);
     const [avatarSeed, setAvatarSeed] = useState('');
     const [avatarBase64, setAvatarBase64] = useState(null);
-    const [savingAvatar, setSavingAvatar] = useState(false);
+    const [isAvatarCreatorOpen, setIsAvatarCreatorOpen] = useState(false);
 
     if (!state.user) return null;
 
@@ -256,18 +257,15 @@ export default function Sidebar() {
                                 <form id="profileFormCRM" onSubmit={handleSaveProfile} className="space-y-6">
                                     {/* Avatar */}
                                     <div className="flex flex-col items-center justify-center mb-4">
-                                        <img src={currentAvatar} alt="Avatar" className="w-24 h-24 rounded-3xl object-cover ring-4 ring-slate-100 shadow-xl" />
-                                        <div className="mt-3 flex flex-col items-center gap-2 w-full max-w-xs">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Generar Avatar con Semilla</label>
-                                            <div className="flex gap-2 w-full">
-                                                <input type="text" value={avatarSeed} onChange={e => setAvatarSeed(e.target.value)} placeholder="Escribe tu nombre..." className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center outline-none focus:border-indigo-500" />
-                                                <button type="button" onClick={generateAvatarFromSeed} disabled={savingAvatar} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition active:scale-95 disabled:opacity-50 flex items-center gap-1">
-                                                    <span className="material-icons text-[16px]">{savingAvatar ? 'sync' : 'auto_awesome'}</span>
-                                                    {savingAvatar ? '...' : 'Generar'}
-                                                </button>
+                                        <div className="relative group cursor-pointer" onClick={() => setIsAvatarCreatorOpen(true)}>
+                                            <img src={currentAvatar} alt="Avatar" className="w-24 h-24 rounded-3xl object-cover ring-4 ring-slate-100 shadow-xl group-hover:ring-indigo-500/50 transition-all" />
+                                            <div className="absolute -bottom-2 -right-2 bg-indigo-600 text-white p-2 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                                                <span className="material-icons text-[16px]">sentiment_satisfied_alt</span>
                                             </div>
-                                            <img src={diceBearPreview} alt="Preview" className="w-16 h-16 rounded-xl opacity-60 border border-slate-200 mt-1" title="Vista previa del avatar que se generará" />
                                         </div>
+                                        <button type="button" onClick={() => setIsAvatarCreatorOpen(true)} className="mt-4 px-5 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-100 transition flex items-center gap-2 shadow-sm">
+                                            <span className="material-icons text-[16px]">camera_alt</span> Editar Avatar
+                                        </button>
                                     </div>
 
                                     {/* Fields */}
@@ -369,6 +367,19 @@ export default function Sidebar() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* AVATAR CREATOR MODAL */}
+            {isAvatarCreatorOpen && (
+                <AvatarCreator
+                    seed={state.user?.id || 'nexus'}
+                    onSave={(base64) => {
+                        setAvatarBase64(base64);
+                        setIsAvatarCreatorOpen(false);
+                        showToast('Avatar actualizado. No olvides guardar tu perfil.');
+                    }}
+                    onClose={() => setIsAvatarCreatorOpen(false)}
+                />
             )}
         </>
     );
