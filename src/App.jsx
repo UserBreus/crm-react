@@ -62,8 +62,26 @@ export default function App() {
                 
                 if (!finalUser.is_super_admin && finalUser.permisos_obj && finalUser.permisos_obj.ventas_tools) {
                     const vt = finalUser.permisos_obj.ventas_tools;
-                    if (!vt[defaultView] || vt[defaultView].access === 'none') {
-                        const available = Object.keys(vt).find(k => vt[k].access !== 'none');
+                    let isAllowed = false;
+                    
+                    if (Array.isArray(vt)) {
+                        isAllowed = vt.includes(defaultView);
+                    } else if (vt[defaultView]) {
+                        const toolAccess = typeof vt[defaultView] === 'string' ? vt[defaultView] : vt[defaultView].access;
+                        isAllowed = toolAccess !== 'none';
+                    }
+
+                    if (!isAllowed) {
+                        let available = null;
+                        if (Array.isArray(vt)) {
+                            available = vt.length > 0 ? vt[0] : null;
+                        } else {
+                            available = Object.keys(vt).find(k => {
+                                const toolAccess = typeof vt[k] === 'string' ? vt[k] : vt[k].access;
+                                return toolAccess !== 'none';
+                            });
+                        }
+                        
                         if (available) {
                             defaultView = available;
                         } else {
@@ -122,7 +140,16 @@ export default function App() {
             // Intento de auto-redirección si la vista actual no está permitida
             const vt = state.user.permisos_obj?.ventas_tools;
             if (vt) {
-                const available = Object.keys(vt).find(k => vt[k].access !== 'none');
+                let available = null;
+                if (Array.isArray(vt)) {
+                    available = vt.length > 0 ? vt[0] : null;
+                } else {
+                    available = Object.keys(vt).find(k => {
+                        const toolAccess = typeof vt[k] === 'string' ? vt[k] : vt[k].access;
+                        return toolAccess !== 'none';
+                    });
+                }
+                
                 if (available && available !== state.view) {
                     setTimeout(() => updateState({ view: available }), 0);
                     return (

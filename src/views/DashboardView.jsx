@@ -37,16 +37,16 @@ export default function DashboardView() {
          let validTargetIds = null;
          let targetCedula = null;
 
-         if (state.user?.role !== 'administrador' && state.user?.role !== 'encargado') {
-             targetCedula = state.user?.cedula;
+         if (state.user?.role !== 'administrador' && state.user?.role !== 'encargado' && !state.user?.is_super_admin) {
+             targetCedula = state.user?.cedula || 'SIN_CEDULA';
          } else if (state.managerView !== 'ALL') {
              const viewId = state.managerView === 'SELF' ? state.user?.id : state.managerView;
-             targetCedula = state.users.find(u => u.id === viewId)?.cedula;
+             targetCedula = state.users?.find(u => u.id === viewId)?.cedula || 'SIN_CEDULA';
          }
 
          if (targetCedula) {
              const misClientes = (state.clients || []).filter(c => c.cedulaVendedor === String(targetCedula));
-             validTargetIds = misClientes.length > 0 ? misClientes.map(c => `'${String(c.id).replace(/'/g, "''")}'`).join(',') : "''";
+             validTargetIds = misClientes.length > 0 ? misClientes.map(c => `'${String(c.id).replace(/'/g, "''")}'`).join(',') : "'---'";
          }
 
          const wOrders = validTargetIds ? `WHERE m.cliente_id IN (${validTargetIds})` : `WHERE 1=1`;
@@ -283,7 +283,17 @@ export default function DashboardView() {
   const isReadOnly = state.user?.role === 'encargado' && state.managerView !== 'SELF' && state.managerView !== 'ALL';
 
   return (
-    <div className="space-y-6 fade-in pb-8">
+    <div className="flex flex-col h-full gap-4 md:gap-6 animate-fade-in relative pb-10">
+      
+      {/* DEPURACIÓN DE ESTADO PARA DIAGNÓSTICO (Quitar luego) */}
+      <div className="bg-red-500 text-white p-4 rounded-xl text-xs font-mono break-words z-50">
+        <strong>DEBUG LOGIC:</strong><br/>
+        state.view: {JSON.stringify(state.view)}<br/>
+        user.role: {state.user?.role}<br/>
+        user.is_super_admin: {String(state.user?.is_super_admin)}<br/>
+        ventas_tools: {JSON.stringify(state.user?.permisos_obj?.ventas_tools)}<br/>
+        cedula: {state.user?.cedula}<br/>
+      </div>
       {/* HEADER BANNER */}
       <div className="bg-gradient-to-r from-indigo-600 to-blue-500 rounded-[2rem] p-8 md:p-10 text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden">
         <div className="absolute -right-10 -top-10 opacity-20"><span className="material-icons" style={{fontSize: '200px'}}>dashboard</span></div>

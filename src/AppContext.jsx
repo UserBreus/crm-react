@@ -212,10 +212,19 @@ export function AppProvider({ children }) {
 
         if (!p.apps?.includes('ventas')) return false;
 
-        const tool = p.ventas_tools?.[toolId];
-        if (!tool || tool.access === 'none') return false;
+        if (Array.isArray(p.ventas_tools)) {
+            // Legacy/Fallback: si es un array simple de strings
+            if (!p.ventas_tools.includes(toolId)) return false;
+            return true;
+        }
 
-        if (subToolId) {
+        const tool = p.ventas_tools?.[toolId];
+        if (!tool) return false;
+        
+        const toolAccess = typeof tool === 'string' ? tool : tool.access;
+        if (toolAccess === 'none') return false;
+
+        if (subToolId && typeof tool === 'object') {
             const subAccess = tool.sub?.[subToolId];
             if (subAccess === 'none') return false;
         }
@@ -228,10 +237,21 @@ export function AppProvider({ children }) {
         if (u?.is_super_admin) return 'write';
         const p = u?.permisos_obj;
         if (!p) return 'none';
+
+        if (Array.isArray(p.ventas_tools)) {
+            return p.ventas_tools.includes(toolId) ? 'write' : 'none';
+        }
+
         const tool = p.ventas_tools?.[toolId];
-        if (!tool || tool.access === 'none') return 'none';
-        if (subToolId) return tool.sub?.[subToolId] || 'none';
-        return tool.access;
+        if (!tool) return 'none';
+
+        const toolAccess = typeof tool === 'string' ? tool : (tool.access || 'none');
+        if (toolAccess === 'none') return 'none';
+
+        if (subToolId && typeof tool === 'object') {
+            return tool.sub?.[subToolId] || 'none';
+        }
+        return toolAccess;
     };
 
     const value = {
