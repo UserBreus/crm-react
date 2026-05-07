@@ -48,10 +48,12 @@ export default function App() {
                     parsedPerms = typeof u.permisos === 'string' ? JSON.parse(u.permisos) : u.permisos;
                 } catch(e) {}
                 
-                let hasVentasApp = true;
+                let hasVentasApp = false;
                 let vTools = null;
                 
-                if (parsedPerms && parsedPerms.version === 2) {
+                if (mappedRole === 'administrador') {
+                    hasVentasApp = true; // El admin siempre pasa
+                } else if (parsedPerms && parsedPerms.version === 2) {
                     hasVentasApp = Array.isArray(parsedPerms.apps) && parsedPerms.apps.includes('ventas');
                     vTools = Array.isArray(parsedPerms.ventas_tools) ? parsedPerms.ventas_tools : [];
                 }
