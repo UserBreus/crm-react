@@ -41,8 +41,24 @@ export default function App() {
             try { 
                 const u = JSON.parse(saved);
                 const rawRole = u.role ? String(u.role).toLowerCase().trim() : 'vendedor';
-                const mappedRole = u.is_super_admin ? 'administrador' : (rawRole === 'admin' ? 'administrador' : rawRole);
-                const mappedName = u.name || u.nombre_completo || u.usuario || u.email || 'Usuario Maestro';
+                let mappedRole = u.is_super_admin ? 'administrador' : (rawRole === 'admin' ? 'administrador' : rawRole);
+                let mappedName = u.name || u.nombre_completo || u.usuario || u.email || 'Usuario Maestro';
+                let mappedCedula = u.cedula || null;
+
+                // Consultar el rol REAL desde la base de datos (la fuente autoritativa)
+                try {
+                    const dbRes = await execSQL("SELECT id, nombre_completo, rol, cedula FROM usuarios WHERE id = ?", [u.id]);
+                    if (Array.isArray(dbRes) && dbRes.length > 0) {
+                        const dbU = dbRes[0];
+                        const dbRole = String(dbU.rol).toLowerCase().trim();
+                        mappedRole = u.is_super_admin ? 'administrador' : (dbRole === 'admin' ? 'administrador' : dbRole);
+                        mappedName = dbU.nombre_completo || mappedName;
+                        mappedCedula = dbU.cedula ? String(dbU.cedula).trim() : mappedCedula;
+                        console.log(`[Auth] Rol DB: '${dbRole}' → mappedRole: '${mappedRole}' para ${mappedName}`);
+                    }
+                } catch (dbErr) {
+                    console.warn('[Auth] No se pudo consultar rol desde DB, usando SSO:', dbErr);
+                }
                 
                 let hasVentasApp = false;
                 
@@ -57,7 +73,7 @@ export default function App() {
                     return; // Detener flujo de login
                 }
                 
-                const finalUser = { ...u, role: mappedRole, name: mappedName };
+                const finalUser = { ...u, role: mappedRole, name: mappedName, cedula: mappedCedula };
                 
                 let defaultView = mappedRole === 'administrador' ? 'admin' : (mappedRole === 'atencion' || mappedRole === 'atencion al cliente' ? 'visor' : 'dashboard');
                 
