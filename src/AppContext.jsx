@@ -185,12 +185,37 @@ export function AppProvider({ children }) {
             const coloresEstados = {};
             rawColoresEstados.forEach(c => { coloresEstados[c.estado.toLowerCase()] = c.color; });
 
-            updateState({
+            // Cruzar el usuario logueado con la DB para corregir rol/nombre/cedula
+            const stateUpdates = {
                 roles, users, notificaciones, 
                 datosConfig, rawColoresEstados, coloresEstados, loading: false,
                 reloadTrigger: Date.now(),
                 clients: Array.isArray(clientsRes) && !clientsRes.error ? clientsRes : []
-            });
+            };
+
+            // Si hay un usuario logueado, sincronizar su rol con el de la DB
+            if (state.user) {
+                const dbUser = users.find(u => 
+                    u.id === state.user.id || 
+                    u.name === state.user.name ||
+                    (u.cedula && u.cedula === state.user.cedula)
+                );
+                if (dbUser) {
+                    const correctedUser = { 
+                        ...state.user, 
+                        role: dbUser.role,           // Rol autoritativo de la DB
+                        name: dbUser.name || state.user.name,
+                        cedula: dbUser.cedula || state.user.cedula
+                    };
+                    // Solo actualizar si algo cambió
+                    if (correctedUser.role !== state.user.role || correctedUser.cedula !== state.user.cedula) {
+                        console.log(`[Auth Sync] Rol corregido: '${state.user.role}' → '${correctedUser.role}' para ${correctedUser.name}`);
+                        stateUpdates.user = correctedUser;
+                    }
+                }
+            }
+
+            updateState(stateUpdates);
 
             if (!isInitialLoad) {
                 showToast('¡Configuraciones maestras actualizadas!');
