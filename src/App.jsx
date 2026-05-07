@@ -40,7 +40,8 @@ export default function App() {
         if (saved) {
             try { 
                 const u = JSON.parse(saved);
-                const mappedRole = u.is_super_admin ? 'administrador' : (u.role ? (String(u.role).toLowerCase() === 'admin' ? 'administrador' : u.role) : 'vendedor');
+                const rawRole = u.role ? String(u.role).toLowerCase().trim() : 'vendedor';
+                const mappedRole = u.is_super_admin ? 'administrador' : (rawRole === 'admin' ? 'administrador' : rawRole);
                 const mappedName = u.name || u.nombre_completo || u.usuario || u.email || 'Usuario Maestro';
                 
                 let hasVentasApp = false;

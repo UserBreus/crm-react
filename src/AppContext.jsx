@@ -163,9 +163,12 @@ export function AppProvider({ children }) {
             ]);
 
             const roles = Array.isArray(rolesRes) ? rolesRes : [];
-            const users = Array.isArray(usersRes) ? usersRes.map(u => ({ 
-                id: u.id, pass: u.pass, role: String(u.rol).toLowerCase() === 'admin' ? 'administrador' : u.rol, name: u.nombre_completo, cedula: u.cedula ? String(u.cedula).trim() : null 
-            })) : [];
+            const users = Array.isArray(usersRes) ? usersRes.map(u => {
+                const r = String(u.rol).toLowerCase().trim();
+                return { 
+                    id: u.id, pass: u.pass, role: r === 'admin' ? 'administrador' : r, name: u.nombre_completo, cedula: u.cedula ? String(u.cedula).trim() : null 
+                };
+            }) : [];
             users.push({ id: 'user', pass: 'vilardebo2031', role: 'administrador', name: 'Super Administrador', cedula: null });
 
             const notificaciones = Array.isArray(notifRes) ? notifRes.map(n => ({ 
