@@ -52,7 +52,7 @@ export default function Sidebar() {
     if (!state.user.is_super_admin && state.user.permisos_obj) {
         finalNavItems = finalNavItems.filter(item => {
             if (item.id === 'div') return true;
-            return checkAccess(`sidebar_${item.id}`);
+            return checkAccess(item.id);
         });
 
         // Limpiar divisores huérfanos

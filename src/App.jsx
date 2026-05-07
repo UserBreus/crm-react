@@ -58,9 +58,24 @@ export default function App() {
                 
                 const finalUser = { ...u, role: mappedRole };
                 
+                let defaultView = mappedRole === 'administrador' ? 'admin' : (mappedRole === 'atencion' || mappedRole === 'atencion al cliente' ? 'visor' : 'dashboard');
+                
+                if (!finalUser.is_super_admin && finalUser.permisos_obj && finalUser.permisos_obj.ventas_tools) {
+                    const vt = finalUser.permisos_obj.ventas_tools;
+                    if (!vt[defaultView] || vt[defaultView].access === 'none') {
+                        const available = Object.keys(vt).find(k => vt[k].access !== 'none');
+                        if (available) {
+                            defaultView = available;
+                        } else {
+                            updateState({ accessDenied: true, loading: false });
+                            return;
+                        }
+                    }
+                }
+                
                 updateState({ 
                     user: finalUser,
-                    view: mappedRole === 'administrador' ? 'admin' : (mappedRole === 'atencion' || mappedRole === 'atencion al cliente' ? 'visor' : 'dashboard')
+                    view: defaultView
                 }); 
                 
                 // Si entró por SSO, sincronizamos la sesión local

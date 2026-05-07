@@ -35,7 +35,7 @@ export default function ClientesView() {
   const { state, updateState, showToast, checkAccess, getAccessLevel } = useAppContext();
   
   // Combina la lógica antigua (managerView) con la nueva de JSON v4
-  const hasWriteAccess = getAccessLevel('sidebar_clients', 'action_edit') === 'write';
+  const hasWriteAccess = getAccessLevel('clients', 'action_edit') === 'write';
   const isReadOnly = (state.user?.role === 'encargado' && state.managerView !== 'SELF' && state.managerView !== 'ALL') || !hasWriteAccess;
 
   // State
