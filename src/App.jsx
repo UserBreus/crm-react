@@ -15,7 +15,7 @@ import AdminView from './views/AdminView';
 import MonitorView from './views/MonitorView';
 
 export default function App() {
-    const { state, updateState, showToast, forceSilentSync } = useAppContext();
+    const { state, updateState, showToast, forceSilentSync, checkAccess } = useAppContext();
     const [firstLoad, setFirstLoad] = useState(true);
 
     useEffect(() => {
@@ -117,6 +117,22 @@ export default function App() {
     }
 
     const renderMainContent = () => {
+        // Validación final de renderizado
+        if (state.user && !state.user.is_super_admin && !checkAccess(state.view)) {
+            // Si intenta renderizar una vista a la que no tiene acceso, mostramos un error de seguridad
+            // O forzamos silenciosamente la primera vista disponible (opcional)
+            return (
+                <div className="flex h-full w-full items-center justify-center flex-col text-slate-400 fade-in">
+                    <span className="material-icons text-6xl text-slate-300 mb-4">lock</span>
+                    <h2 className="text-xl font-bold">Vista no autorizada</h2>
+                    <p className="mt-2 text-sm text-slate-500">
+                        No tienes permiso para ver el módulo interno: <span className="font-mono text-indigo-400">{state.view}</span>
+                    </p>
+                    <p className="mt-6 text-xs text-slate-600">Utiliza el menú lateral para navegar a una sección permitida.</p>
+                </div>
+            );
+        }
+
         switch (state.view) {
             case 'dashboard': return <DashboardView />;
             case 'clients': return <ClientesView />;
