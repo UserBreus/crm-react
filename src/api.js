@@ -12,10 +12,23 @@ function pushToLog(logItem) {
 export async function execSQL(query, params = []) {
     let finalQuery = query;
     if (params && params.length > 0) {
-        params.forEach(p => {
-            let val = (p === null || p === undefined) ? 'NULL' : (typeof p === 'number' ? p : `'${String(p).replace(/'/g, "''")}'`);
-            finalQuery = finalQuery.replace('?', val);
-        });
+        // Split by ? placeholders and rebuild with values to avoid re-matching ? inside substituted values
+        const parts = finalQuery.split('?');
+        if (parts.length - 1 === params.length) {
+            let built = parts[0];
+            for (let i = 0; i < params.length; i++) {
+                const p = params[i];
+                let val = (p === null || p === undefined) ? 'NULL' : (typeof p === 'number' ? p : `'${String(p).replace(/'/g, "''")}'`);
+                built += val + parts[i + 1];
+            }
+            finalQuery = built;
+        } else {
+            // Fallback: sequential replace (original behavior)
+            params.forEach(p => {
+                let val = (p === null || p === undefined) ? 'NULL' : (typeof p === 'number' ? p : `'${String(p).replace(/'/g, "''")}'`);
+                finalQuery = finalQuery.replace('?', val);
+            });
+        }
     }
 
     const startTime = performance.now();
