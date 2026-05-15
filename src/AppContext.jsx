@@ -90,22 +90,31 @@ export function AppProvider({ children }) {
         return () => { isActive = false; clearInterval(interval); };
     }, [state.user?.id, state.user?.role, state.datosConfig]);
 
+    useEffect(() => {
+        const fetchReadNotifications = async () => {
+            if (!state.user) return;
+            try {
+                const res = await execSQL("SELECT notificacion_id FROM notificaciones_leidas WHERE usuario_id = ?", [state.user.id]);
+                if (Array.isArray(res)) {
+                    updateState({ readNotifications: res.map(r => r.notificacion_id) });
+                }
+            } catch(e) { console.error("Error fetching read notifications:", e); }
+        };
+        fetchReadNotifications();
+    }, [state.user?.id]);
+
     const getReadNotifications = () => {
-        let readArr = [];
-        try {
-            const readStr = localStorage.getItem('crm_read_notifs');
-            if (readStr) readArr = JSON.parse(readStr);
-        } catch (e) { }
-        return readArr;
+        return state.readNotifications || [];
     };
 
     const markAsReadNotification = (id) => {
-        const readArr = getReadNotifications();
+        const readArr = state.readNotifications || [];
         if (!readArr.includes(id)) {
-            readArr.push(id);
-            localStorage.setItem('crm_read_notifs', JSON.stringify(readArr));
-            // Trigger a re-render by updating state slightly
-            updateState({ notificaciones: [...state.notificaciones] });
+            const newReadArr = [...readArr, id];
+            updateState({ readNotifications: newReadArr });
+            if (state.user) {
+                execSQL("INSERT INTO notificaciones_leidas (notificacion_id, usuario_id, timestamp) VALUES (?, ?, ?)", [id, state.user.id, Date.now()]).catch(e => console.error(e));
+            }
         }
     };
 
